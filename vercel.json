@@ -1,0 +1,11 @@
+{
+  "framework": "vite",
+  "rootDirectory": "dual-ai-chat",
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
