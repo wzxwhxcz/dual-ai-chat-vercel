@@ -2,9 +2,10 @@
   "framework": "vite",
   "outputDirectory": "dist",
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ]
+    { "handle": "filesystem" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "buildCommand": "cd dual-ai-chat && npm install && npm run build",
+  "outputDirectory": "dual-ai-chat/dist"
 }
