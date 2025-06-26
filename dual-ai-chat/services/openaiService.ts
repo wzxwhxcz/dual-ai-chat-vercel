@@ -63,6 +63,18 @@ export const generateOpenAiResponse = async (
     // temperature: 0.7, // Optional
   };
 
+  const requestDetails = {
+    url: `${baseUrl}/chat/completions`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey.substring(0, 10)}...`,
+    },
+    body: requestBody
+  };
+
+  console.log("发送请求:", requestDetails);
+
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -94,15 +106,6 @@ export const generateOpenAiResponse = async (
         errorType = "Quota exceeded";
       }
       console.error("OpenAI API Error:", errorMessage, "Status:", response.status, "Body:", errorBody);
-      console.error("Request details:", {
-        url: `${baseUrl}/chat/completions`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey.substring(0, 10)}...`,
-        },
-        body: requestBody
-      });
       return { text: errorMessage, durationMs, error: errorType };
     }
 
@@ -110,15 +113,6 @@ export const generateOpenAiResponse = async (
 
     if (!data.choices || data.choices.length === 0 || !data.choices[0].message || !data.choices[0].message.content) {
       console.error("OpenAI API: 无效的响应结构", data);
-      console.error("Request details:", {
-        url: `${baseUrl}/chat/completions`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey.substring(0, 10)}...`,
-        },
-        body: requestBody
-      });
       return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure" };
     }
 
@@ -126,15 +120,6 @@ export const generateOpenAiResponse = async (
 
   } catch (error) {
     console.error("调用OpenAI API时出错:", error);
-    console.error("Request details:", {
-      url: `${baseUrl}/chat/completions`,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.substring(0, 10)}...`,
-      },
-      body: requestBody
-    });
     const durationMs = performance.now() - startTime;
     let errorMessage = "与AI通信时发生未知错误。";
     let errorType = "Unknown AI error";
