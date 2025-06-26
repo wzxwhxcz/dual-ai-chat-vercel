@@ -176,7 +176,11 @@ if (result?.requestDetails) {
 addMessage(errorMessage, MessageSender.System, MessagePurpose.SystemNotification);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_BASE_MS * (autoRetryCount + 1)));
         } else {
-          const errorMsgId = addMessage(`[${senderForStep} - ${stepIdentifier}] 在 ${MAX_AUTO_RETRIES + 1} 次尝试后失败: ${error.message} 可手动重试。`, MessageSender.System, MessagePurpose.SystemNotification);
+          let finalErrorMessage = `[${senderForStep} - ${stepIdentifier}] 在 ${MAX_AUTO_RETRIES + 1} 次尝试后失败: ${error.message} 可手动重试。`;
+if (result?.requestDetails) {
+  finalErrorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+}
+const errorMsgId = addMessage(finalErrorMessage, MessageSender.System, MessagePurpose.SystemNotification);
           
           let thinkingConfigForPayload: {thinkingBudget: number} | undefined = undefined;
           if (!useOpenAiApiConfig) { 
