@@ -83,16 +83,23 @@ export const generateOpenAiResponse = async (
     });
 
     const durationMs = performance.now() - startTime;
+    
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      const textBody = await response.text();
+      return { 
+        text: "无法解析响应JSON", 
+        durationMs, 
+        error: "JSON Parse Error", 
+        requestDetails, 
+        responseBody: { rawText: textBody, parseError: parseError.message } 
+      };
+    }
 
     if (!response.ok) {
-      let errorBody;
-      try {
-        errorBody = await response.json();
-      } catch (e) {
-        // If parsing error body fails, use status text
-      }
-      
-      const errorMessage = errorBody?.error?.message || response.statusText || `请求失败，状态码: ${response.status}`;
+      const errorMessage = data?.error?.message || response.statusText || `请求失败，状态码: ${response.status}`;
       
       let errorType = "OpenAI API error";
       if (response.status === 401 || response.status === 403) {
@@ -101,10 +108,8 @@ export const generateOpenAiResponse = async (
         errorType = "Quota exceeded";
       }
       
-      return { text: errorMessage, durationMs, error: errorType, requestDetails, responseBody: errorBody };
+      return { text: errorMessage, durationMs, error: errorType, requestDetails, responseBody: data };
     }
-
-    const data = await response.json();
 
     if (!data.choices || data.choices.length === 0) {
       return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure", requestDetails, responseBody: data };
