@@ -43,6 +43,12 @@ interface GeminiResponsePayload {
   error?: string; // Standardized error key
 }
 
+interface GeminiStreamResponse {
+  onChunk: (chunk: string) => void;
+  onComplete: (fullText: string, durationMs: number) => void;
+  onError: (error: string, errorType: string, durationMs: number) => void;
+}
+
 export const generateResponse = async (
   prompt: string,
   modelName: string,
@@ -51,7 +57,8 @@ export const generateResponse = async (
   customApiEndpoint?: string,
   systemInstruction?: string,
   imagePart?: { inlineData: { mimeType: string; data: string } },
-  thinkingConfig?: { thinkingBudget: number }
+  thinkingConfig?: { thinkingBudget: number },
+  temperature?: number
 ): Promise<GeminiResponsePayload> => {
   const startTime = performance.now();
   try {
@@ -88,6 +95,7 @@ export const generateResponse = async (
     const configForApi: {
       systemInstruction?: string;
       thinkingConfig?: { thinkingBudget: number };
+      generationConfig?: { temperature?: number };
     } = {};
 
     if (systemInstruction) {
@@ -95,6 +103,9 @@ export const generateResponse = async (
     }
     if (thinkingConfig) {
       configForApi.thinkingConfig = thinkingConfig;
+    }
+    if (temperature !== undefined) {
+      configForApi.generationConfig = { temperature };
     }
 
     const textPart: Part = { text: prompt };
@@ -151,5 +162,71 @@ export const generateResponse = async (
       // and directly returned if apiKeyToUse is null/empty. This catch is for other errors.
     }
     return { text: errorMessage, durationMs, error: errorType };
+  }
+};
+
+export const generateStreamResponse = async (
+  prompt: string,
+  modelName: string,
+  useCustomConfig: boolean,
+  customApiKey?: string,
+  customApiEndpoint?: string,
+  systemInstruction?: string,
+  imagePart?: { inlineData: { mimeType: string; data: string } },
+  thinkingConfig?: { thinkingBudget: number },
+  temperature?: number,
+  callbacks?: GeminiStreamResponse
+): Promise<void> => {
+  const startTime = performance.now();
+  
+  try {
+    // 由于Gemini API可能不支持真正的流式，我们使用模拟流式
+    const result = await generateResponse(
+      prompt,
+      modelName,
+      useCustomConfig,
+      customApiKey,
+      customApiEndpoint,
+      systemInstruction,
+      imagePart,
+      thinkingConfig,
+      temperature
+    );
+
+    if (result.error) {
+      callbacks?.onError?.(result.text, result.error, result.durationMs);
+      return;
+    }
+
+    // 模拟流式输出 - 将文本分块发送
+    const text = result.text;
+    const chunkSize = Math.max(1, Math.floor(text.length / 20)); // 分成大约20个块
+    let currentIndex = 0;
+
+    const sendChunk = () => {
+      if (currentIndex >= text.length) {
+        callbacks?.onComplete?.(text, result.durationMs);
+        return;
+      }
+
+      const chunk = text.slice(currentIndex, currentIndex + chunkSize);
+      currentIndex += chunkSize;
+      callbacks?.onChunk?.(chunk);
+
+      // 模拟延迟以提供流式体验
+      setTimeout(sendChunk, 50);
+    };
+
+    sendChunk();
+
+  } catch (error) {
+    const durationMs = performance.now() - startTime;
+    let errorMessage = "与AI通信时发生未知错误。";
+    let errorType = "Unknown AI error";
+    if (error instanceof Error) {
+      errorMessage = `与AI通信时出错: ${error.message}`;
+      errorType = error.name;
+    }
+    callbacks?.onError?.(errorMessage, errorType, durationMs);
   }
 };

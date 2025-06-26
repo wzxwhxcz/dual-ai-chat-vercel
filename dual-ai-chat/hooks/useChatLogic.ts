@@ -46,6 +46,7 @@ interface UseChatLogicProps {
   startProcessingTimer: () => void;
   stopProcessingTimer: () => void;
   currentQueryStartTimeRef: React.MutableRefObject<number | null>;
+  temperature: number;
 }
 
 export const useChatLogic = ({
@@ -74,6 +75,7 @@ export const useChatLogic = ({
   startProcessingTimer,
   stopProcessingTimer,
   currentQueryStartTimeRef,
+  temperature,
 }: UseChatLogicProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [discussionLog, setDiscussionLog] = useState<string[]>([]);
@@ -127,7 +129,8 @@ export const useChatLogic = ({
             openAiApiKey,
             openAiApiBaseUrl,
             modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-            imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined
+            imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined,
+            temperature
           );
         } else { 
           result = await generateGeminiResponse(
@@ -138,7 +141,8 @@ export const useChatLogic = ({
             customApiEndpoint, 
             modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
             imageApiPartForStep,
-            thinkingConfigToUseForGemini
+            thinkingConfigToUseForGemini,
+            temperature
           );
         }
 
@@ -225,7 +229,7 @@ export const useChatLogic = ({
       addMessage, cognitoSystemPrompt, museSystemPrompt, getThinkingConfigForGeminiModel, 
       useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl,
       useCustomApiConfig, customApiKey, customApiEndpoint, 
-      setGlobalApiKeyStatus, setIsLoading, setIsInternalDiscussionActive
+      setGlobalApiKeyStatus, setIsLoading, setIsInternalDiscussionActive, temperature
     ]);
 
   const continueDiscussionAfterSuccessfulRetry = useCallback(async (
@@ -645,7 +649,8 @@ export const useChatLogic = ({
           openAiApiKey,
           openAiApiBaseUrl,
           updatedStepToRetry.systemInstruction,
-          geminiImageApiPartForRetry ? { mimeType: geminiImageApiPartForRetry.inlineData.mimeType, data: geminiImageApiPartForRetry.inlineData.data } : undefined
+          geminiImageApiPartForRetry ? { mimeType: geminiImageApiPartForRetry.inlineData.mimeType, data: geminiImageApiPartForRetry.inlineData.data } : undefined,
+          temperature
         );
       } else { 
         result = await generateGeminiResponse(
@@ -656,7 +661,8 @@ export const useChatLogic = ({
           customApiEndpoint, 
           updatedStepToRetry.systemInstruction,
           geminiImageApiPartForRetry,
-          getThinkingConfigForGeminiModel(modelForRetry)
+          getThinkingConfigForGeminiModel(modelForRetry),
+          temperature
         );
       }
 
@@ -730,7 +736,7 @@ export const useChatLogic = ({
     setFailedStepInfo, addMessage, cognitoModelDetails, museModelDetails, cognitoSystemPrompt, 
     museSystemPrompt, useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl, useCustomApiConfig, 
     customApiKey, customApiEndpoint, getThinkingConfigForGeminiModel, processNotepadUpdateFromAI, 
-    continueDiscussionAfterSuccessfulRetry, failedStepInfo, setIsInternalDiscussionActive, currentDiscussionTurn, setLastCompletedTurnCount, discussionMode, manualFixedTurns, discussionLog
+    continueDiscussionAfterSuccessfulRetry, failedStepInfo, setIsInternalDiscussionActive, currentDiscussionTurn, setLastCompletedTurnCount, discussionMode, manualFixedTurns, discussionLog, temperature
   ]);
 
   const stopGenerating = useCallback(() => {

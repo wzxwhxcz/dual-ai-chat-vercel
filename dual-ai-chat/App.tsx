@@ -86,6 +86,14 @@ const App: React.FC = () => {
     const storedScale = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
     return storedScale ? parseFloat(storedScale) : DEFAULT_FONT_SIZE_SCALE;
   });
+  const [temperature, setTemperature] = useState<number>(() => {
+    const storedTemp = localStorage.getItem('dualAiChatTemperature');
+    return storedTemp ? parseFloat(storedTemp) : 1.0;
+  });
+  const [streamMode, setStreamMode] = useState<boolean>(() => {
+    const storedStream = localStorage.getItem('dualAiChatStreamMode');
+    return storedStream ? storedStream === 'true' : false;
+  });
   
   const panelsContainerRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -205,6 +213,7 @@ const App: React.FC = () => {
     startProcessingTimer,
     stopProcessingTimer,
     currentQueryStartTimeRef,
+    temperature,
   });
 
   // Save Gemini custom config
@@ -224,6 +233,14 @@ const App: React.FC = () => {
     document.documentElement.style.fontSize = `${fontSizeScale * 100}%`;
     localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSizeScale.toString());
   }, [fontSizeScale]);
+
+  useEffect(() => {
+    localStorage.setItem('dualAiChatTemperature', temperature.toString());
+  }, [temperature]);
+
+  useEffect(() => {
+    localStorage.setItem('dualAiChatStreamMode', streamMode.toString());
+  }, [streamMode]);
 
   const isEffectivelyApiKeyMissing = useMemo(() => {
     if (useOpenAiApiConfig) {
@@ -625,6 +642,10 @@ const App: React.FC = () => {
           isLoading={isLoading}
           fontSizeScale={fontSizeScale}
           onFontSizeScaleChange={setFontSizeScale}
+          temperature={temperature}
+          onTemperatureChange={setTemperature}
+          streamMode={streamMode}
+          onStreamModeChange={setStreamMode}
           // Gemini Custom API Props
           useCustomApiConfig={useCustomApiConfig}
           onUseCustomApiConfigChange={handleUseCustomGeminiApiConfigChange}
