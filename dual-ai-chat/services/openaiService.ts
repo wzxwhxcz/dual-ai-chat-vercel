@@ -110,11 +110,13 @@ export const generateOpenAiResponse = async (
     }
 
     const choice = data.choices[0];
-    if (!choice.message || choice.message.content === null || choice.message.content === undefined) {
-      return { text: "AI响应内容为空。", durationMs, error: "Empty response content", requestDetails };
+    if (!choice.message) {
+      return { text: "AI响应消息为空。", durationMs, error: "Missing message", requestDetails };
     }
 
-    return { text: choice.message.content, durationMs };
+    const content = choice.message.content || "";
+    
+    return { text: content, durationMs };
 
   } catch (error) {
     const durationMs = performance.now() - startTime;
