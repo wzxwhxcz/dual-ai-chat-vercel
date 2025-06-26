@@ -3,6 +3,7 @@ interface OpenAiResponsePayload {
   text: string;
   durationMs: number;
   error?: string;
+  requestDetails?: any;
 }
 
 interface OpenAiMessageContentPartText {
@@ -73,8 +74,6 @@ export const generateOpenAiResponse = async (
     body: requestBody
   };
 
-  console.log("发送请求:", requestDetails);
-
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -106,14 +105,14 @@ export const generateOpenAiResponse = async (
         errorType = "Quota exceeded";
       }
       console.error("OpenAI API Error:", errorMessage, "Status:", response.status, "Body:", errorBody);
-      return { text: errorMessage, durationMs, error: errorType };
+      return { text: errorMessage, durationMs, error: errorType, requestDetails };
     }
 
     const data = await response.json();
 
     if (!data.choices || data.choices.length === 0 || !data.choices[0].message || !data.choices[0].message.content) {
       console.error("OpenAI API: 无效的响应结构", data);
-      return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure" };
+      return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure", requestDetails };
     }
 
     return { text: data.choices[0].message.content, durationMs };
@@ -127,6 +126,6 @@ export const generateOpenAiResponse = async (
       errorMessage = `与AI通信时出错: ${error.message}`;
       errorType = error.name;
     }
-    return { text: errorMessage, durationMs, error: errorType };
+    return { text: errorMessage, durationMs, error: errorType, requestDetails };
   }
 };
