@@ -93,128 +93,124 @@ export const useChatLogic = ({
     return undefined;
   }, [useOpenAiApiConfig, isThinkingBudgetActive]);
 
-  const commonAIStepExecution = useCallback(async (
-    stepIdentifier: string,
-    prompt: string, 
-    modelDetailsForStep: AiModel, 
-    senderForStep: MessageSender, 
-    purposeForStep: MessagePurpose,
-    imageApiPartForStep?: { inlineData: { mimeType: string; data: string } }, 
-    userInputForFlowContext?: string, 
-    imageApiPartForFlowContext?: { inlineData: { mimeType: string; data: string } }, 
-    discussionLogBeforeFailureContext?: string[],
-    currentTurnIndexForResumeContext?: number,
-    previousAISignaledStopForResumeContext?: boolean
-  ): Promise<ParsedAIResponse> => {
-    let stepSuccess = false;
-    let parsedResponse: ParsedAIResponse | null = null;
-    let autoRetryCount = 0;
-    
-    const systemInstructionToUse = senderForStep === MessageSender.Cognito ? cognitoSystemPrompt : museSystemPrompt;
-    const thinkingConfigToUseForGemini = getThinkingConfigForGeminiModel(modelDetailsForStep);
+const commonAIStepExecution = useCallback(async (
+  stepIdentifier: string,
+  prompt: string, 
+  modelDetailsForStep: AiModel, 
+  senderForStep: MessageSender, 
+  purposeForStep: MessagePurpose,
+  imageApiPartForStep?: { inlineData: { mimeType: string; data: string } }, 
+  userInputForFlowContext?: string, 
+  imageApiPartForFlowContext?: { inlineData: { mimeType: string; data: string } }, 
+  discussionLogBeforeFailureContext?: string[],
+  currentTurnIndexForResumeContext?: number,
+  previousAISignaledStopForResumeContext?: boolean
+): Promise<ParsedAIResponse> => {
+  let stepSuccess = false;
+  let parsedResponse: ParsedAIResponse | null = null;
+  let autoRetryCount = 0;
+  let result: { text: string; durationMs: number; error?: string; requestDetails?: any } | null = null;
+  
+  const systemInstructionToUse = senderForStep === MessageSender.Cognito ? cognitoSystemPrompt : museSystemPrompt;
+  const thinkingConfigToUseForGemini = getThinkingConfigForGeminiModel(modelDetailsForStep);
 
-    while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
-      if (cancelRequestRef.current) throw new Error("用户取消操作");
-      try {
-        let result: { text: string; durationMs: number; error?: string };
-        
-                        // modelDetailsForStep.apiName will hold the specific OpenAI model ID 
-                        // (openAiCognitoModelId or openAiMuseModelId) due to how actualCognitoModelDetails/actualMuseModelDetails are constructed in App.tsx
-        const currentOpenAiModelId = modelDetailsForStep.apiName;
+  while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
+    if (cancelRequestRef.current) throw new Error("用户取消操作");
+    try {
+      const currentOpenAiModelId = modelDetailsForStep.apiName;
 
-
-        if (useOpenAiApiConfig) {
-          result = await generateOpenAiResponse(
-            prompt,
-            currentOpenAiModelId, 
-            openAiApiKey,
-            openAiApiBaseUrl,
-            modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-            imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined
-          );
-        } else { 
-          result = await generateGeminiResponse(
-            prompt,
-            modelDetailsForStep.apiName, 
-            useCustomApiConfig, 
-            customApiKey, 
-            customApiEndpoint, 
-            modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-            imageApiPartForStep,
-            thinkingConfigToUseForGemini
-          );
-        }
-
-        if (cancelRequestRef.current) throw new Error("用户取消操作");
-        
-        if (result.error) {
-          if (result.error === "API key not configured" || result.error.toLowerCase().includes("api key not provided")) {
-             setGlobalApiKeyStatus({isMissing: true, message: result.text}); 
-             throw new Error(result.text); 
-          }
-          if (result.error === "API key invalid or permission denied") {
-             setGlobalApiKeyStatus({isInvalid: true, message: result.text}); 
-             throw new Error(result.text);
-          }
-          throw new Error(result.text || "AI 响应错误");
-        }
-        setGlobalApiKeyStatus({isMissing: false, isInvalid: false, message: undefined }); 
-        parsedResponse = parseAIResponse(result.text);
-        addMessage(parsedResponse.spokenText, senderForStep, purposeForStep, result.durationMs);
-        stepSuccess = true;
-      } catch (e) {
-        const error = e as Error;
-        if (error.message.includes("API密钥") || error.message.toLowerCase().includes("api key")) {
-           throw error; 
-        }
-
-        if (autoRetryCount < MAX_AUTO_RETRIES) {
-          let errorMessage = `[${senderForStep} - ${stepIdentifier}] 调用失败，重试 (${autoRetryCount + 1}/${MAX_AUTO_RETRIES})... ${error.message}`;
-if (result?.requestDetails) {
-  errorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
-}
-addMessage(errorMessage, MessageSender.System, MessagePurpose.SystemNotification);
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_BASE_MS * (autoRetryCount + 1)));
-        } else {
-          let finalErrorMessage = `[${senderForStep} - ${stepIdentifier}] 在 ${MAX_AUTO_RETRIES + 1} 次尝试后失败: ${error.message} 可手动重试。`;
-if (result?.requestDetails) {
-  finalErrorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
-}
-const errorMsgId = addMessage(finalErrorMessage, MessageSender.System, MessagePurpose.SystemNotification);
-          
-          let thinkingConfigForPayload: {thinkingBudget: number} | undefined = undefined;
-          if (!useOpenAiApiConfig) { 
-            thinkingConfigForPayload = thinkingConfigToUseForGemini;
-          }
-
-          setFailedStepInfo({
-            stepIdentifier: stepIdentifier, 
-            prompt: prompt, 
-            modelName: modelDetailsForStep.apiName, 
-            systemInstruction: modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined, 
-            imageApiPart: imageApiPartForStep, 
-            sender: senderForStep, 
-            purpose: purposeForStep, 
-            originalSystemErrorMsgId: errorMsgId, 
-            thinkingConfig: thinkingConfigForPayload,
-            userInputForFlow: userInputForFlowContext || "", 
-            imageApiPartForFlow: imageApiPartForFlowContext,
-            discussionLogBeforeFailure: discussionLogBeforeFailureContext || [], 
-            currentTurnIndexForResume: currentTurnIndexForResumeContext,
-            previousAISignaledStopForResume: previousAISignaledStopForResumeContext
-          });
-          setIsInternalDiscussionActive(false); 
-          throw error; 
-        }
+      if (useOpenAiApiConfig) {
+        result = await generateOpenAiResponse(
+          prompt,
+          currentOpenAiModelId, 
+          openAiApiKey,
+          openAiApiBaseUrl,
+          modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+          imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined
+        );
+      } else { 
+        result = await generateGeminiResponse(
+          prompt,
+          modelDetailsForStep.apiName, 
+          useCustomApiConfig, 
+          customApiKey, 
+          customApiEndpoint, 
+          modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+          imageApiPartForStep,
+          thinkingConfigToUseForGemini
+        );
       }
-      autoRetryCount++;
-    }
-    if (!parsedResponse) {
+
+      if (cancelRequestRef.current) throw new Error("用户取消操作");
+      
+      if (result.error) {
+        if (result.error === "API key not configured" || result.error.toLowerCase().includes("api key not provided")) {
+           setGlobalApiKeyStatus({isMissing: true, message: result.text}); 
+           throw new Error(result.text); 
+        }
+        if (result.error === "API key invalid or permission denied") {
+           setGlobalApiKeyStatus({isInvalid: true, message: result.text}); 
+           throw new Error(result.text);
+        }
+        throw new Error(result.text || "AI 响应错误");
+      }
+      setGlobalApiKeyStatus({isMissing: false, isInvalid: false, message: undefined }); 
+      parsedResponse = parseAIResponse(result.text);
+      addMessage(parsedResponse.spokenText, senderForStep, purposeForStep, result.durationMs);
+      stepSuccess = true;
+    } catch (e) {
+      const error = e as Error;
+      if (error.message.includes("API密钥") || error.message.toLowerCase().includes("api key")) {
+         throw error; 
+      }
+
+      if (autoRetryCount < MAX_AUTO_RETRIES) {
+        let errorMessage = `[${senderForStep} - ${stepIdentifier}] 调用失败，重试 (${autoRetryCount + 1}/${MAX_AUTO_RETRIES})... ${error.message}`;
+        if (result?.requestDetails) {
+          errorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+        }
+        addMessage(errorMessage, MessageSender.System, MessagePurpose.SystemNotification);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_BASE_MS * (autoRetryCount + 1)));
+      } else {
+        let finalErrorMessage = `[${senderForStep} - ${stepIdentifier}] 在 ${MAX_AUTO_RETRIES + 1} 次尝试后失败: ${error.message} 可手动重试。`;
+        if (result?.requestDetails) {
+          finalErrorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+        }
+        const errorMsgId = addMessage(finalErrorMessage, MessageSender.System, MessagePurpose.SystemNotification);
+        
+        let thinkingConfigForPayload: {thinkingBudget: number} | undefined = undefined;
+        if (!useOpenAiApiConfig) { 
+          thinkingConfigForPayload = thinkingConfigToUseForGemini;
+        }
+
+        setFailedStepInfo({
+          stepIdentifier: stepIdentifier, 
+          prompt: prompt, 
+          modelName: modelDetailsForStep.apiName, 
+          systemInstruction: modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined, 
+          imageApiPart: imageApiPartForStep, 
+          sender: senderForStep, 
+          purpose: purposeForStep, 
+          originalSystemErrorMsgId: errorMsgId, 
+          thinkingConfig: thinkingConfigForPayload,
+          userInputForFlow: userInputForFlowContext || "", 
+          imageApiPartForFlow: imageApiPartForFlowContext,
+          discussionLogBeforeFailure: discussionLogBeforeFailureContext || [], 
+          currentTurnIndexForResume: currentTurnIndexForResumeContext,
+          previousAISignaledStopForResume: previousAISignaledStopForResumeContext
+        });
         setIsInternalDiscussionActive(false); 
-        throw new Error("AI响应处理失败");
+        throw error; 
+      }
     }
-    return parsedResponse;
-  }, [
+    autoRetryCount++;
+  }
+  if (!parsedResponse) {
+      setIsInternalDiscussionActive(false); 
+      throw new Error("AI响应处理失败");
+  }
+  return parsedResponse;
+}, [
       addMessage, cognitoSystemPrompt, museSystemPrompt, getThinkingConfigForGeminiModel, 
       useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl, // openAiCognitoModelId & openAiMuseModelId are implicitly used via modelDetailsForStep.apiName
       useCustomApiConfig, customApiKey, customApiEndpoint, 
