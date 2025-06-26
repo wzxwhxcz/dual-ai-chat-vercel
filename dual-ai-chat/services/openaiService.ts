@@ -110,10 +110,6 @@ export const generateOpenAiResponse = async (
 
     const data = await response.json();
 
-    if (!data.choices || data.choices.length === 0 || !data.choices[0].message || !data.choices[0].message.content) {
-      console.error("OpenAI API: 无效的响应结构", data);
-      return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure", requestDetails };
-    }
 
     return { text: data.choices[0].message.content, durationMs };
 
