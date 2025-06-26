@@ -111,16 +111,27 @@ export const generateOpenAiResponse = async (
       return { text: errorMessage, durationMs, error: errorType, requestDetails, responseBody: data };
     }
 
-    if (!data.choices || data.choices.length === 0) {
+    // 适配这个 API 的响应格式
+    let content = "";
+    
+    // 检查是否是标准 OpenAI 格式
+    if (data.choices && data.choices.length > 0) {
+      const choice = data.choices[0];
+      if (choice.message && choice.message.content !== undefined) {
+        content = choice.message.content || "";
+      }
+    }
+    // 检查是否是这个 API 的格式
+    else if (data.result && data.result.length > 0) {
+      const result = data.result[0];
+      if (result.content !== undefined) {
+        content = result.content || "";
+      }
+    }
+    // 都不匹配则返回错误
+    else {
       return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure", requestDetails, responseBody: data };
     }
-
-    const choice = data.choices[0];
-    if (!choice.message) {
-      return { text: "AI响应消息为空。", durationMs, error: "Missing message", requestDetails, responseBody: data };
-    }
-
-    const content = choice.message.content || "";
     
     return { text: content, durationMs };
 
