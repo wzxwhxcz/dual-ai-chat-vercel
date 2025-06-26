@@ -25,6 +25,10 @@ interface SettingsModalProps {
   isLoading: boolean;
   fontSizeScale: number;
   onFontSizeScaleChange: (scale: number) => void;
+  temperature: number;
+  onTemperatureChange: (temperature: number) => void;
+  streamMode: boolean;
+  onStreamModeChange: (enabled: boolean) => void;
   
   // Gemini Custom API
   useCustomApiConfig: boolean; 
@@ -75,6 +79,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   isLoading,
   fontSizeScale,
   onFontSizeScaleChange,
+  temperature,
+  onTemperatureChange,
+  streamMode,
+  onStreamModeChange,
   useCustomApiConfig, 
   onUseCustomApiConfigChange, 
   customApiEndpoint,
@@ -329,7 +337,61 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Model Performance Section */}
           <section aria-labelledby="performance-settings-heading">
             <h3 id="performance-settings-heading" className={sectionHeadingClass}>模型性能</h3>
-            <div className="flex items-center justify-between">
+            <div className="space-y-4">
+              {/* Temperature Control */}
+              <div>
+                <label htmlFor="temperatureSlider" className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <SlidersHorizontal size={16} className="mr-2 text-sky-600" />
+                  温度设置: {temperature.toFixed(1)}
+                </label>
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs text-gray-500 w-8">0.0</span>
+                  <input
+                    type="range"
+                    id="temperatureSlider"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={temperature}
+                    onChange={(e) => !isLoading && onTemperatureChange(parseFloat(e.target.value))}
+                    disabled={isLoading}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-70
+                      slider-thumb:appearance-none slider-thumb:w-4 slider-thumb:h-4 slider-thumb:bg-sky-600 slider-thumb:rounded-full 
+                      slider-thumb:cursor-pointer slider-thumb:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    aria-label="调整AI模型温度"
+                  />
+                  <span className="text-xs text-gray-500 w-8">2.0</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  低温度 (0.0-0.7): 更精确、一致的回答; 高温度 (0.8-2.0): 更创意、多样的回答
+                </p>
+              </div>
+
+              {/* Streaming Mode */}
+              <div className="flex items-center justify-between">
+                <label htmlFor="streamModeToggleModal"
+                    className={`${toggleLabelBaseClass} ${isLoading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-sky-600'}`}
+                    title="启用后将实时显示AI回复，提供更好的用户体验">
+                    <SlidersHorizontal size={20} className={`mr-2 ${streamMode ? 'text-sky-600' : 'text-gray-400'}`} />
+                    <span className="select-none">流式返回模式:</span>
+                </label>
+                <div className={toggleButtonContainerClass}>
+                     <button
+                        id="streamModeToggleModal"
+                        onClick={() => !isLoading && onStreamModeChange(!streamMode)}
+                        className={`${toggleButtonClass} ${isLoading ? 'cursor-not-allowed opacity-70' : ''}`}
+                        disabled={isLoading} role="switch" aria-checked={streamMode}>
+                        <span className={`${toggleButtonSwitchClass} ${streamMode ? 'bg-sky-500' : 'bg-gray-300'}`}></span>
+                        <span className={`${toggleButtonKnobClass} ${streamMode ? 'translate-x-4' : ''}`}></span>
+                    </button>
+                    <span className={toggleTextClass}>
+                        {streamMode ? '开启' : '关闭'}
+                    </span>
+                </div>
+              </div>
+
+              {/* Thinking Budget */}
+              <div className="flex items-center justify-between">
                 <label htmlFor="thinkingBudgetToggleModal"
                     className={`${toggleLabelBaseClass} transition-opacity ${isLoading || !actualSupportsThinkingConfig ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-sky-600'}`}
                     title={actualSupportsThinkingConfig ? "切换AI思考预算 (仅Gemini Flash/Pro模型)。优质模式可获得更高质量回复。" : "当前模型或API配置不支持思考预算。"}>
@@ -349,10 +411,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         {actualSupportsThinkingConfig ? (isThinkingBudgetActive ? '优质' : '标准') : 'N/A'}
                     </span>
                 </div>
-            </div>
-             {!actualSupportsThinkingConfig && (
+              </div>
+              {!actualSupportsThinkingConfig && (
                 <p className="text-xs text-gray-500 mt-1 pl-7">当前选定模型或API配置不支持思考预算功能。</p>
-            )}
+              )}
+            </div>
           </section>
 
           {/* AI Persona Settings Section */}
