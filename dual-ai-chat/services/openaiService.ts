@@ -1,4 +1,3 @@
-// Loosely based on GeminiResponsePayload for now
 interface OpenAiResponsePayload {
   text: string;
   durationMs: number;
@@ -10,6 +9,7 @@ interface OpenAiMessageContentPartText {
   type: 'text';
   text: string;
 }
+
 interface OpenAiMessageContentPartImage {
   type: 'image_url';
   image_url: {
@@ -17,8 +17,8 @@ interface OpenAiMessageContentPartImage {
     detail?: 'low' | 'high' | 'auto';
   };
 }
-type OpenAiMessageContentPart = OpenAiMessageContentPartText | OpenAiMessageContentPartImage;
 
+type OpenAiMessageContentPart = OpenAiMessageContentPartText | OpenAiMessageContentPartImage;
 
 interface OpenAiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -26,12 +26,12 @@ interface OpenAiChatMessage {
 }
 
 export const generateOpenAiResponse = async (
-  prompt: string, // This will be the main user content for the 'user' role message
+  prompt: string,
   modelId: string,
   apiKey: string,
   baseUrl: string,
   systemInstruction?: string,
-  imagePart?: { mimeType: string; data: string } // Base64 data and mimeType
+  imagePart?: { mimeType: string; data: string }
 ): Promise<OpenAiResponsePayload> => {
   const startTime = performance.now();
   const messages: OpenAiChatMessage[] = [];
@@ -48,7 +48,6 @@ export const generateOpenAiResponse = async (
         type: 'image_url',
         image_url: {
           url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
-          // detail: 'auto' // Optional: you can add detail if needed
         },
       },
     ];
@@ -60,8 +59,6 @@ export const generateOpenAiResponse = async (
   const requestBody = {
     model: modelId,
     messages: messages,
-    // max_tokens: 1024, // Optional: Set a default or make it configurable
-    // temperature: 0.7, // Optional
   };
 
   const requestDetails = {
@@ -93,28 +90,33 @@ export const generateOpenAiResponse = async (
       } catch (e) {
         // If parsing error body fails, use status text
       }
-      const errorMessage =
-        errorBody?.error?.message ||
-        response.statusText ||
-        `请求失败，状态码: ${response.status}`;
-        
+      
+      const errorMessage = errorBody?.error?.message || response.statusText || `请求失败，状态码: ${response.status}`;
+      
       let errorType = "OpenAI API error";
       if (response.status === 401 || response.status === 403) {
         errorType = "API key invalid or permission denied";
       } else if (response.status === 429) {
         errorType = "Quota exceeded";
       }
-      console.error("OpenAI API Error:", errorMessage, "Status:", response.status, "Body:", errorBody);
+      
       return { text: errorMessage, durationMs, error: errorType, requestDetails };
     }
 
     const data = await response.json();
 
+    if (!data.choices || data.choices.length === 0) {
+      return { text: "AI响应格式无效。", durationMs, error: "Invalid response structure", requestDetails };
+    }
 
-    return { text: data.choices[0].message.content, durationMs };
+    const choice = data.choices[0];
+    if (!choice.message || choice.message.content === null || choice.message.content === undefined) {
+      return { text: "AI响应内容为空。", durationMs, error: "Empty response content", requestDetails };
+    }
+
+    return { text: choice.message.content, durationMs };
 
   } catch (error) {
-    console.error("调用OpenAI API时出错:", error);
     const durationMs = performance.now() - startTime;
     let errorMessage = "与AI通信时发生未知错误。";
     let errorType = "Unknown AI error";
