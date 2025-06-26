@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback } from 'react';
 import { ChatMessage, MessageSender, MessagePurpose, FailedStepPayload, DiscussionMode } from '../types'; 
 import { generateResponse as generateGeminiResponse } from '../services/geminiService';
@@ -93,126 +92,138 @@ export const useChatLogic = ({
     return undefined;
   }, [useOpenAiApiConfig, isThinkingBudgetActive]);
 
-const commonAIStepExecution = useCallback(async (
-  stepIdentifier: string,
-  prompt: string, 
-  modelDetailsForStep: AiModel, 
-  senderForStep: MessageSender, 
-  purposeForStep: MessagePurpose,
-  imageApiPartForStep?: { inlineData: { mimeType: string; data: string } }, 
-  userInputForFlowContext?: string, 
-  imageApiPartForFlowContext?: { inlineData: { mimeType: string; data: string } }, 
-  discussionLogBeforeFailureContext?: string[],
-  currentTurnIndexForResumeContext?: number,
-  previousAISignaledStopForResumeContext?: boolean
-): Promise<ParsedAIResponse> => {
-  let stepSuccess = false;
-  let parsedResponse: ParsedAIResponse | null = null;
-  let autoRetryCount = 0;
-  let result: { text: string; durationMs: number; error?: string; requestDetails?: any } | null = null;
-  
-  const systemInstructionToUse = senderForStep === MessageSender.Cognito ? cognitoSystemPrompt : museSystemPrompt;
-  const thinkingConfigToUseForGemini = getThinkingConfigForGeminiModel(modelDetailsForStep);
+  const commonAIStepExecution = useCallback(async (
+    stepIdentifier: string,
+    prompt: string, 
+    modelDetailsForStep: AiModel, 
+    senderForStep: MessageSender, 
+    purposeForStep: MessagePurpose,
+    imageApiPartForStep?: { inlineData: { mimeType: string; data: string } }, 
+    userInputForFlowContext?: string, 
+    imageApiPartForFlowContext?: { inlineData: { mimeType: string; data: string } }, 
+    discussionLogBeforeFailureContext?: string[],
+    currentTurnIndexForResumeContext?: number,
+    previousAISignaledStopForResumeContext?: boolean
+  ): Promise<ParsedAIResponse> => {
+    let stepSuccess = false;
+    let parsedResponse: ParsedAIResponse | null = null;
+    let autoRetryCount = 0;
+    
+    const systemInstructionToUse = senderForStep === MessageSender.Cognito ? cognitoSystemPrompt : museSystemPrompt;
+    const thinkingConfigToUseForGemini = getThinkingConfigForGeminiModel(modelDetailsForStep);
 
-  while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
-    if (cancelRequestRef.current) throw new Error("用户取消操作");
-    try {
-      const currentOpenAiModelId = modelDetailsForStep.apiName;
-
-      if (useOpenAiApiConfig) {
-        result = await generateOpenAiResponse(
-          prompt,
-          currentOpenAiModelId, 
-          openAiApiKey,
-          openAiApiBaseUrl,
-          modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-          imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined
-        );
-      } else { 
-        result = await generateGeminiResponse(
-          prompt,
-          modelDetailsForStep.apiName, 
-          useCustomApiConfig, 
-          customApiKey, 
-          customApiEndpoint, 
-          modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-          imageApiPartForStep,
-          thinkingConfigToUseForGemini
-        );
-      }
-
+    while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
       if (cancelRequestRef.current) throw new Error("用户取消操作");
       
-      if (result.error) {
-        if (result.error === "API key not configured" || result.error.toLowerCase().includes("api key not provided")) {
-           setGlobalApiKeyStatus({isMissing: true, message: result.text}); 
-           throw new Error(result.text); 
-        }
-        if (result.error === "API key invalid or permission denied") {
-           setGlobalApiKeyStatus({isInvalid: true, message: result.text}); 
-           throw new Error(result.text);
-        }
-        throw new Error(result.text || "AI 响应错误");
-      }
-      setGlobalApiKeyStatus({isMissing: false, isInvalid: false, message: undefined }); 
-      parsedResponse = parseAIResponse(result.text);
-      addMessage(parsedResponse.spokenText, senderForStep, purposeForStep, result.durationMs);
-      stepSuccess = true;
-    } catch (e) {
-      const error = e as Error;
-      if (error.message.includes("API密钥") || error.message.toLowerCase().includes("api key")) {
-         throw error; 
-      }
+      let result: { text: string; durationMs: number; error?: string; requestDetails?: any; responseBody?: any } | undefined;
+      
+      try {
+        const currentOpenAiModelId = modelDetailsForStep.apiName;
 
-      if (autoRetryCount < MAX_AUTO_RETRIES) {
-        let errorMessage = `[${senderForStep} - ${stepIdentifier}] 调用失败，重试 (${autoRetryCount + 1}/${MAX_AUTO_RETRIES})... ${error.message}`;
-        if (result?.requestDetails) {
-          errorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+        if (useOpenAiApiConfig) {
+          result = await generateOpenAiResponse(
+            prompt,
+            currentOpenAiModelId, 
+            openAiApiKey,
+            openAiApiBaseUrl,
+            modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+            imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined
+          );
+        } else { 
+          result = await generateGeminiResponse(
+            prompt,
+            modelDetailsForStep.apiName, 
+            useCustomApiConfig, 
+            customApiKey, 
+            customApiEndpoint, 
+            modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+            imageApiPartForStep,
+            thinkingConfigToUseForGemini
+          );
         }
-        addMessage(errorMessage, MessageSender.System, MessagePurpose.SystemNotification);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_BASE_MS * (autoRetryCount + 1)));
-      } else {
-        let finalErrorMessage = `[${senderForStep} - ${stepIdentifier}] 在 ${MAX_AUTO_RETRIES + 1} 次尝试后失败: ${error.message} 可手动重试。`;
-        if (result?.requestDetails) {
-          finalErrorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
-        }
-        const errorMsgId = addMessage(finalErrorMessage, MessageSender.System, MessagePurpose.SystemNotification);
+
+        if (cancelRequestRef.current) throw new Error("用户取消操作");
         
-        let thinkingConfigForPayload: {thinkingBudget: number} | undefined = undefined;
-        if (!useOpenAiApiConfig) { 
-          thinkingConfigForPayload = thinkingConfigToUseForGemini;
+        if (result.error) {
+          if (result.error === "API key not configured" || result.error.toLowerCase().includes("api key not provided")) {
+             setGlobalApiKeyStatus({isMissing: true, message: result.text}); 
+             throw new Error(result.text); 
+          }
+          if (result.error === "API key invalid or permission denied") {
+             setGlobalApiKeyStatus({isInvalid: true, message: result.text}); 
+             throw new Error(result.text);
+          }
+          throw new Error(result.text || "AI 响应错误");
+        }
+        setGlobalApiKeyStatus({isMissing: false, isInvalid: false, message: undefined }); 
+        parsedResponse = parseAIResponse(result.text);
+        addMessage(parsedResponse.spokenText, senderForStep, purposeForStep, result.durationMs);
+        stepSuccess = true;
+      } catch (e) {
+        const error = e as Error;
+        if (error.message.includes("API密钥") || error.message.toLowerCase().includes("api key")) {
+           throw error; 
         }
 
-        setFailedStepInfo({
-          stepIdentifier: stepIdentifier, 
-          prompt: prompt, 
-          modelName: modelDetailsForStep.apiName, 
-          systemInstruction: modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined, 
-          imageApiPart: imageApiPartForStep, 
-          sender: senderForStep, 
-          purpose: purposeForStep, 
-          originalSystemErrorMsgId: errorMsgId, 
-          thinkingConfig: thinkingConfigForPayload,
-          userInputForFlow: userInputForFlowContext || "", 
-          imageApiPartForFlow: imageApiPartForFlowContext,
-          discussionLogBeforeFailure: discussionLogBeforeFailureContext || [], 
-          currentTurnIndexForResume: currentTurnIndexForResumeContext,
-          previousAISignaledStopForResume: previousAISignaledStopForResumeContext
-        });
-        setIsInternalDiscussionActive(false); 
-        throw error; 
+        if (autoRetryCount < MAX_AUTO_RETRIES) {
+          let errorMessage = `[${senderForStep} - ${stepIdentifier}] 调用失败，重试 (${autoRetryCount + 1}/${MAX_AUTO_RETRIES})... ${error.message}`;
+          
+          if (result?.requestDetails) {
+            errorMessage += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+          }
+          if (result?.responseBody) {
+            errorMessage += `\n响应内容: ${JSON.stringify(result.responseBody, null, 2)}`;
+          }
+          
+          addMessage(errorMessage, MessageSender.System, MessagePurpose.SystemNotification);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_BASE_MS * (autoRetryCount + 1)));
+        } else {
+          let finalErrorMessage = `[${senderForStep} - ${stepIdentifier}] 在 ${MAX_AUTO_RETRIES + 1} 次尝试后失败: ${error.message} 可手动重试。`;
+          
+          if (result?.requestDetails) {
+            finalErrorMessage += `\n最后一次请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+          }
+          if (result?.responseBody) {
+            finalErrorMessage += `\n最后一次响应内容: ${JSON.stringify(result.responseBody, null, 2)}`;
+          }
+          
+          const errorMsgId = addMessage(finalErrorMessage, MessageSender.System, MessagePurpose.SystemNotification);
+          
+          let thinkingConfigForPayload: {thinkingBudget: number} | undefined = undefined;
+          if (!useOpenAiApiConfig) { 
+            thinkingConfigForPayload = thinkingConfigToUseForGemini;
+          }
+
+          setFailedStepInfo({
+            stepIdentifier: stepIdentifier, 
+            prompt: prompt, 
+            modelName: modelDetailsForStep.apiName, 
+            systemInstruction: modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined, 
+            imageApiPart: imageApiPartForStep, 
+            sender: senderForStep, 
+            purpose: purposeForStep, 
+            originalSystemErrorMsgId: errorMsgId, 
+            thinkingConfig: thinkingConfigForPayload,
+            userInputForFlow: userInputForFlowContext || "", 
+            imageApiPartForFlow: imageApiPartForFlowContext,
+            discussionLogBeforeFailure: discussionLogBeforeFailureContext || [], 
+            currentTurnIndexForResume: currentTurnIndexForResumeContext,
+            previousAISignaledStopForResume: previousAISignaledStopForResumeContext
+          });
+          setIsInternalDiscussionActive(false); 
+          throw error; 
+        }
       }
+      autoRetryCount++;
     }
-    autoRetryCount++;
-  }
-  if (!parsedResponse) {
-      setIsInternalDiscussionActive(false); 
-      throw new Error("AI响应处理失败");
-  }
-  return parsedResponse;
-}, [
+    if (!parsedResponse) {
+        setIsInternalDiscussionActive(false); 
+        throw new Error("AI响应处理失败");
+    }
+    return parsedResponse;
+  }, [
       addMessage, cognitoSystemPrompt, museSystemPrompt, getThinkingConfigForGeminiModel, 
-      useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl, // openAiCognitoModelId & openAiMuseModelId are implicitly used via modelDetailsForStep.apiName
+      useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl,
       useCustomApiConfig, customApiKey, customApiEndpoint, 
       setGlobalApiKeyStatus, setIsLoading, setIsInternalDiscussionActive
     ]);
@@ -278,7 +289,6 @@ const commonAIStepExecution = useCallback(async (
         return;
     }
 
-
     try {
       let discussionLoopShouldRun = true;
       if (discussionMode === DiscussionMode.AiDriven && localPreviousAISignaledStop && retriedStepPayload.previousAISignaledStopForResume) {
@@ -323,7 +333,6 @@ const commonAIStepExecution = useCallback(async (
           if (discussionMode === DiscussionMode.AiDriven && localPreviousAISignaledStop && retriedStepPayload.previousAISignaledStopForResume) { setIsInternalDiscussionActive(false); break; }
           if (discussionMode === DiscussionMode.FixedTurns && turn >= manualFixedTurns -1) { setIsInternalDiscussionActive(false); break; }
 
-
           const cognitoReplyStepIdentifier = `cognito-reply-to-muse-turn-${turn}`;
           addMessage(`${MessageSender.Cognito} 正在回应 ${MessageSender.Muse} (使用 ${effectiveCognitoModel.name})...`, MessageSender.System, MessagePurpose.SystemNotification);
           let cognitoReplyPromptText = `用户的查询 (中文) 是: "${userInputForFlow}". ${imageInstructionForAI} 当前讨论 (均为中文):\n${localDiscussionLog.join("\n")}\n${MessageSender.Muse} (创意AI) 刚刚说 (中文): "${localLastTurnTextForLog}". 请回复 ${MessageSender.Muse}。继续讨论。保持您的回复简洁并使用中文。\n${commonPromptInstructions()}`;
@@ -364,7 +373,7 @@ const commonAIStepExecution = useCallback(async (
 **指令:**
 1.  **生成最终答案:** 基于整个对话和当前记事本内容，综合所有要点，为用户创建一个全面、结构良好、易于理解的最终答案。答案必须是中文，并使用 Markdown 格式化以提高可读性。
 2.  **更新记事本:** 使用 <np-replace-all> 标签将完整的最终答案放入记事本。这将是用户看到的主要输出。
-3.  **口头回复:** 你的口头回复 (在 <np-replace-all> 标签之前的部分) 应该非常简短。只需告诉用户最终答案已在记事本中准备好。例如：“最终答案已为您准备好，请查看右侧的记事本。”
+3.  **口头回复:** 你的口头回复 (在 <np-replace-all> 标签之前的部分) 应该非常简短。只需告诉用户最终答案已在记事本中准备好。例如："最终答案已为您准备好，请查看右侧的记事本。"
 
 **严格遵守以上指令。最终答案必须在记事本中。**
 \n${commonPromptInstructions()}`;
@@ -387,20 +396,18 @@ const commonAIStepExecution = useCallback(async (
       if (!failedStepInfo || cancelRequestRef.current) {
          setIsLoading(false);
          stopProcessingTimer();
-         // Update last completed turn count on successful completion of a retried flow
          if (!cancelRequestRef.current && !failedStepInfo) {
             let completedTurns = 0;
-            if (discussionLog.length > 1) { // Check if discussion happened before final synthesis
+            if (discussionLog.length > 1) {
                 if (discussionMode === DiscussionMode.FixedTurns) {
                     completedTurns = manualFixedTurns;
                 } else {
-                    // currentDiscussionTurn reflects the last completed turn index in the loop
                     completedTurns = currentDiscussionTurn + 1;
                 }
             }
             setLastCompletedTurnCount(completedTurns);
-        } else if (cancelRequestRef.current && !failedStepInfo) { // Cancelled during retry flow
-            setLastCompletedTurnCount(0); // Or decide to keep previous
+        } else if (cancelRequestRef.current && !failedStepInfo) {
+            setLastCompletedTurnCount(0);
         }
       }
       if (cancelRequestRef.current && !failedStepInfo) {
@@ -411,7 +418,7 @@ const commonAIStepExecution = useCallback(async (
   }, [
       addMessage, commonAIStepExecution, processNotepadUpdateFromAI, setDiscussionLog, 
       discussionMode, manualFixedTurns, cognitoModelDetails, museModelDetails, notepadContent, 
-      setIsLoading, stopProcessingTimer, failedStepInfo, setIsInternalDiscussionActive, currentDiscussionTurn, setLastCompletedTurnCount // Added currentDiscussionTurn and setLastCompletedTurnCount
+      setIsLoading, stopProcessingTimer, failedStepInfo, setIsInternalDiscussionActive, currentDiscussionTurn, setLastCompletedTurnCount
     ]);
 
   const startChatProcessing = useCallback(async (userInput: string, imageFile?: File | null) => {
@@ -548,7 +555,7 @@ const commonAIStepExecution = useCallback(async (
 **指令:**
 1.  **生成最终答案:** 基于整个对话和当前记事本内容，综合所有要点，为用户创建一个全面、结构良好、易于理解的最终答案。答案必须是中文，并使用 Markdown 格式化以提高可读性。
 2.  **更新记事本:** 使用 <np-replace-all> 标签将完整的最终答案放入记事本。这将是用户看到的主要输出。
-3.  **口头回复:** 你的口头回复 (在 <np-replace-all> 标签之前的部分) 应该非常简短。只需告诉用户最终答案已在记事本中准备好。例如：“最终答案已为您准备好，请查看右侧的记事本。”
+3.  **口头回复:** 你的口头回复 (在 <np-replace-all> 标签之前的部分) 应该非常简短。只需告诉用户最终答案已在记事本中准备好。例如："最终答案已为您准备好，请查看右侧的记事本。"
 
 **严格遵守以上指令。最终答案必须在记事本中。**
 \n${commonPromptInstructions()}`;
@@ -573,28 +580,19 @@ const commonAIStepExecution = useCallback(async (
       stopProcessingTimer();
       setIsInternalDiscussionActive(false); 
 
-      if (!cancelRequestRef.current && !failedStepInfo) { // Successful completion of a new query
+      if (!cancelRequestRef.current && !failedStepInfo) {
         let completedTurns = 0;
-        // currentLocalDiscussionLog includes the initial Cognito message to Muse.
-        // A single "turn" or "round" here means Muse replied and Cognito replied again in the loop.
-        // Or if AI driven, however many back-and-forths occurred.
-        // If discussionLog.length is 1 (only Cognito's initial), no discussion rounds.
-        // If discussionLog.length > 1, some discussion happened.
         if (currentLocalDiscussionLog.length > 1) {
             if (discussionMode === DiscussionMode.FixedTurns) {
                 completedTurns = manualFixedTurns;
             } else {
-                // currentDiscussionTurn is 0-indexed for loop iterations.
-                // Each iteration is one round of (Muse response, Cognito response).
-                // So, currentDiscussionTurn + 1 is the number of rounds.
                 completedTurns = currentDiscussionTurn + 1;
             }
         }
         setLastCompletedTurnCount(completedTurns);
-      } else if (cancelRequestRef.current && !failedStepInfo) { // Cancelled new query
-          setLastCompletedTurnCount(0); // Reset or keep previous? Resetting is simpler.
+      } else if (cancelRequestRef.current && !failedStepInfo) {
+          setLastCompletedTurnCount(0);
       }
-      // If failedStepInfo is set, lastCompletedTurnCount remains from the previous successful query.
 
       if (userImageForDisplay?.dataUrl.startsWith('blob:')) {
         URL.revokeObjectURL(userImageForDisplay.dataUrl);
@@ -607,7 +605,7 @@ const commonAIStepExecution = useCallback(async (
       isLoading, setIsLoading, setFailedStepInfo, setDiscussionLog, setCurrentDiscussionTurn, 
       setIsInternalDiscussionActive, setGlobalApiKeyStatus, startProcessingTimer, stopProcessingTimer,
       addMessage, processNotepadUpdateFromAI, cognitoModelDetails, museModelDetails, discussionMode, 
-      manualFixedTurns, notepadContent, commonAIStepExecution, failedStepInfo, currentDiscussionTurn, setLastCompletedTurnCount // Added currentDiscussionTurn and setLastCompletedTurnCount
+      manualFixedTurns, notepadContent, commonAIStepExecution, failedStepInfo, currentDiscussionTurn, setLastCompletedTurnCount
     ]);
 
   const retryFailedStep = useCallback(async (stepToRetry: FailedStepPayload) => {
@@ -634,10 +632,11 @@ const commonAIStepExecution = useCallback(async (
       modelName: modelForRetry.apiName, 
     };
 
+    let result: { text: string; durationMs: number; error?: string; requestDetails?: any; responseBody?: any } | undefined;
+
     try {
-      let result: { text: string; durationMs: number; error?: string };
       const geminiImageApiPartForRetry = updatedStepToRetry.imageApiPart; 
-      const currentOpenAiModelIdForRetry = modelForRetry.apiName; // Will be cognito/muse specific OpenAI model ID
+      const currentOpenAiModelIdForRetry = modelForRetry.apiName;
 
       if (useOpenAiApiConfig) {
         result = await generateOpenAiResponse(
@@ -680,7 +679,6 @@ const commonAIStepExecution = useCallback(async (
       processNotepadUpdateFromAI(parsedResponseFromRetry, updatedStepToRetry.sender, addMessage);
       addMessage(`[${updatedStepToRetry.sender} - ${updatedStepToRetry.stepIdentifier}] 手动重试成功。后续流程将继续。`, MessageSender.System, MessagePurpose.SystemNotification);
 
-      // continueDiscussionAfterSuccessfulRetry will handle its own finally block for isLoading, timer, and lastCompletedTurnCount
       await continueDiscussionAfterSuccessfulRetry(
           {...updatedStepToRetry, imageApiPartForFlow: geminiImageApiPartForRetry}, 
           parsedResponseFromRetry
@@ -691,7 +689,14 @@ const commonAIStepExecution = useCallback(async (
       if (cancelRequestRef.current) { /* User cancelled */ }
       else {
         console.error("手动重试失败:", error);
-        const errorMsg = e.message || "未知错误";
+        let errorMsg = e.message || "未知错误";
+        
+        if (result?.requestDetails) {
+          errorMsg += `\n请求详情: ${JSON.stringify(result.requestDetails, null, 2)}`;
+        }
+        if (result?.responseBody) {
+          errorMsg += `\n响应内容: ${JSON.stringify(result.responseBody, null, 2)}`;
+        }
         
         const displayErrorMessage = errorMsg.includes("API密钥") || errorMsg.toLowerCase().includes("api key") 
           ? errorMsg 
@@ -711,7 +716,6 @@ const commonAIStepExecution = useCallback(async (
             });
         }
       }
-      // Only set loading to false if not cancelled OR if a new failedStepInfo is set (meaning retry truly failed)
       if (!cancelRequestRef.current || failedStepInfo) { 
           setIsLoading(false);
           stopProcessingTimer();
@@ -726,14 +730,12 @@ const commonAIStepExecution = useCallback(async (
     setFailedStepInfo, addMessage, cognitoModelDetails, museModelDetails, cognitoSystemPrompt, 
     museSystemPrompt, useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl, useCustomApiConfig, 
     customApiKey, customApiEndpoint, getThinkingConfigForGeminiModel, processNotepadUpdateFromAI, 
-    continueDiscussionAfterSuccessfulRetry, failedStepInfo, setIsInternalDiscussionActive, currentDiscussionTurn, setLastCompletedTurnCount, discussionMode, manualFixedTurns, discussionLog // Added dependencies
+    continueDiscussionAfterSuccessfulRetry, failedStepInfo, setIsInternalDiscussionActive, currentDiscussionTurn, setLastCompletedTurnCount, discussionMode, manualFixedTurns, discussionLog
   ]);
-
 
   const stopGenerating = useCallback(() => {
     cancelRequestRef.current = true;
     setIsInternalDiscussionActive(false);
-    // Let finally blocks handle isLoading and timer
   }, [setIsInternalDiscussionActive]);
 
   return {
@@ -746,6 +748,6 @@ const commonAIStepExecution = useCallback(async (
     cancelRequestRef,
     currentDiscussionTurn,
     isInternalDiscussionActive,
-    lastCompletedTurnCount, // Expose new state
+    lastCompletedTurnCount,
   };
 };
