@@ -1,0 +1,22 @@
+/* 基础样式重置和设置 */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* 确保应用填充整个视口 */
+.app-container {
+  min-height: 100vh;
+  min-width: 100vw;
+}

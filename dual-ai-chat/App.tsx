@@ -113,10 +113,6 @@ const App: React.FC = () => {
   const [currentCognitoRoleName, setCurrentCognitoRoleName] = useState<string>('cognito');
   const [currentMuseRoleName, setCurrentMuseRoleName] = useState<string>('muse');
 
-  // 当前选中的角色
-  const currentCognitoRole = getRoleByName(currentCognitoRoleName) || getRoleByName('cognito')!;
-  const currentMuseRole = getRoleByName(currentMuseRoleName) || getRoleByName('muse')!;
-
 
   const {
     isNotepadFullscreen,
@@ -157,6 +153,10 @@ const App: React.FC = () => {
     getRoleByName,
     duplicateRole,
   } = useCustomRoles();
+
+  // 当前选中的角色 - 必须在 getRoleByName 定义之后
+  const currentCognitoRole = getRoleByName(currentCognitoRoleName) || getRoleByName('cognito') || { name: 'cognito', systemPrompt: COGNITO_SYSTEM_PROMPT_HEADER };
+  const currentMuseRole = getRoleByName(currentMuseRoleName) || getRoleByName('muse') || { name: 'muse', systemPrompt: MUSE_SYSTEM_PROMPT_HEADER };
 
   const {
     notepadContent,
