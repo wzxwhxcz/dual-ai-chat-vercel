@@ -20,6 +20,7 @@ export interface ChatMessage {
   purpose: MessagePurpose;
   timestamp: Date;
   durationMs?: number; // Time taken to generate this message (for AI messages)
+  isStreaming?: boolean; // Whether this message is currently being streamed
   image?: { // Optional image data for user messages
     dataUrl: string; // base64 data URL for displaying the image
     name: string;
@@ -62,4 +63,26 @@ export interface FailedStepPayload {
 export enum DiscussionMode {
   FixedTurns = 'fixed',
   AiDriven = 'ai-driven',
+}
+
+// 对话历史管理
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  notepadContent: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// AI角色自定义
+export interface CustomAIRole {
+  id: string;
+  name: string;
+  displayName: string;
+  systemPrompt: string;
+  icon: string;
+  color: string;
+  isBuiltIn: boolean;
+  createdAt: Date;
 }

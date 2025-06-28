@@ -168,3 +168,9 @@ export const OPENAI_MUSE_MODEL_ID_STORAGE_KEY = 'dualAiChatOpenAiMuseModelId';
 export const DEFAULT_OPENAI_API_BASE_URL = 'http://localhost:11434/v1'; // Example for Ollama
 export const DEFAULT_OPENAI_COGNITO_MODEL_ID = 'llama3'; // Placeholder
 export const DEFAULT_OPENAI_MUSE_MODEL_ID = 'llama3'; // Placeholder
+
+// 新功能存储键
+export const CHAT_SESSIONS_STORAGE_KEY = 'dualAiChatSessions';
+export const CURRENT_SESSION_ID_STORAGE_KEY = 'dualAiChatCurrentSessionId';
+export const CUSTOM_AI_ROLES_STORAGE_KEY = 'dualAiChatCustomRoles';
+export const STREAM_MODE_STORAGE_KEY = 'dualAiChatStreamMode';

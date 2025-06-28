@@ -198,23 +198,31 @@ export const generateStreamResponse = async (
       return;
     }
 
-    // 模拟流式输出 - 将文本分块发送
+    // 改进的模拟流式输出
     const text = result.text;
-    const chunkSize = Math.max(1, Math.floor(text.length / 20)); // 分成大约20个块
-    let currentIndex = 0;
+    const totalWords = text.split(/\s+/).length;
+    const wordsPerChunk = Math.max(1, Math.ceil(totalWords / 30)); // 按词分块，约30个块
+    const words = text.split(/(\s+)/); // 保留空格
+    let currentWordIndex = 0;
 
     const sendChunk = () => {
-      if (currentIndex >= text.length) {
+      if (currentWordIndex >= words.length) {
         callbacks?.onComplete?.(text, result.durationMs);
         return;
       }
 
-      const chunk = text.slice(currentIndex, currentIndex + chunkSize);
-      currentIndex += chunkSize;
-      callbacks?.onChunk?.(chunk);
+      // 取出一个块的词语
+      const chunkWords = words.slice(currentWordIndex, currentWordIndex + wordsPerChunk * 2); // *2因为包含空格
+      const chunk = chunkWords.join('');
+      currentWordIndex += wordsPerChunk * 2;
+      
+      if (chunk.trim()) {
+        callbacks?.onChunk?.(chunk);
+      }
 
-      // 模拟延迟以提供流式体验
-      setTimeout(sendChunk, 50);
+      // 动态调整延迟，让流式更自然
+      const delay = Math.random() * 30 + 20; // 20-50ms的随机延迟
+      setTimeout(sendChunk, delay);
     };
 
     sendChunk();

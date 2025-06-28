@@ -1,11 +1,13 @@
 
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChatMessage, MessageSender, MessagePurpose, FailedStepPayload, DiscussionMode } from './types';
+import { ChatMessage, MessageSender, MessagePurpose, DiscussionMode } from './types';
 import ChatInput from './components/ChatInput';
 import MessageBubble from './components/MessageBubble';
 import Notepad from './components/Notepad';
 import SettingsModal from './components/SettingsModal';
+import SessionManager from './components/SessionManager';
+import RoleManager from './components/RoleManager';
 import {
   MODELS,
   DEFAULT_COGNITO_MODEL_API_NAME, 
@@ -29,12 +31,18 @@ import {
   DEFAULT_OPENAI_API_BASE_URL,
   DEFAULT_OPENAI_COGNITO_MODEL_ID,
   DEFAULT_OPENAI_MUSE_MODEL_ID,
+  STREAM_MODE_STORAGE_KEY,
+  CHAT_SESSIONS_STORAGE_KEY,
+  CURRENT_SESSION_ID_STORAGE_KEY,
+  CUSTOM_AI_ROLES_STORAGE_KEY,
 } from './constants';
-import { BotMessageSquare, AlertTriangle, RefreshCcw as RefreshCwIcon, Settings2, Brain, Sparkles, Database } from 'lucide-react'; 
+import { BotMessageSquare, AlertTriangle, RefreshCcw as RefreshCwIcon, Settings2, Brain, Sparkles, Database, History, Users } from 'lucide-react'; 
 
 import { useChatLogic } from './hooks/useChatLogic';
 import { useNotepadLogic } from './hooks/useNotepadLogic';
 import { useAppUI } from './hooks/useAppUI';
+import { useChatSessions } from './hooks/useChatSessions';
+import { useCustomRoles } from './hooks/useCustomRoles';
 import { generateUniqueId, getWelcomeMessageText } from './utils/appUtils';
 
 const DEFAULT_CHAT_PANEL_PERCENT = 60; 
@@ -91,13 +99,23 @@ const App: React.FC = () => {
     return storedTemp ? parseFloat(storedTemp) : 1.0;
   });
   const [streamMode, setStreamMode] = useState<boolean>(() => {
-    const storedStream = localStorage.getItem('dualAiChatStreamMode');
+    const storedStream = localStorage.getItem(STREAM_MODE_STORAGE_KEY);
     return storedStream ? storedStream === 'true' : false;
   });
   
   const panelsContainerRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState<boolean>(true);
+
+  // 新功能状态
+  const [isSessionManagerOpen, setIsSessionManagerOpen] = useState<boolean>(false);
+  const [isRoleManagerOpen, setIsRoleManagerOpen] = useState<boolean>(false);
+  const [currentCognitoRoleName, setCurrentCognitoRoleName] = useState<string>('cognito');
+  const [currentMuseRoleName, setCurrentMuseRoleName] = useState<string>('muse');
+
+  // 当前选中的角色
+  const currentCognitoRole = getRoleByName(currentCognitoRoleName) || getRoleByName('cognito')!;
+  const currentMuseRole = getRoleByName(currentMuseRoleName) || getRoleByName('muse')!;
 
 
   const {
@@ -117,6 +135,28 @@ const App: React.FC = () => {
     currentQueryStartTimeRef, 
     setChatPanelWidthPercent, 
   } = useAppUI(DEFAULT_CHAT_PANEL_PERCENT, panelsContainerRef);
+
+  // 会话管理hooks
+  const {
+    sessions,
+    currentSessionId,
+    getCurrentSession,
+    createNewSession,
+    updateCurrentSession,
+    switchToSession,
+    deleteSession,
+    renameSession,
+  } = useChatSessions();
+
+  // 角色管理hooks  
+  const {
+    allRoles,
+    createRole,
+    updateRole,
+    deleteRole,
+    getRoleByName,
+    duplicateRole,
+  } = useCustomRoles();
 
   const {
     notepadContent,
@@ -435,6 +475,60 @@ const App: React.FC = () => {
     }
   };
 
+  // 会话管理函数
+  const handleCreateSession = useCallback((title?: string) => {
+    const sessionId = createNewSession(title);
+    setMessages([]);
+    clearNotepadContent();
+    setIsNotepadFullscreen(false);
+    setIsAutoScrollEnabled(true);
+    initializeChat();
+  }, [createNewSession, clearNotepadContent, setIsNotepadFullscreen, initializeChat]);
+
+  const handleSwitchSession = useCallback((sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      switchToSession(sessionId);
+      setMessages(session.messages);
+      // 这里需要更新notepad内容，但需要修改useNotepadLogic来支持设置内容
+      setIsNotepadFullscreen(false);
+      setIsAutoScrollEnabled(true);
+    }
+  }, [sessions, switchToSession]);
+
+  const handleDeleteSession = useCallback((sessionId: string) => {
+    deleteSession(sessionId);
+    if (currentSessionId === sessionId) {
+      setMessages([]);
+      clearNotepadContent();
+      initializeChat();
+    }
+  }, [deleteSession, currentSessionId, clearNotepadContent, initializeChat]);
+
+  // 角色管理函数
+  const handleSelectRole = useCallback((roleName: string, type: 'cognito' | 'muse') => {
+    if (type === 'cognito') {
+      setCurrentCognitoRoleName(roleName);
+      const role = getRoleByName(roleName);
+      if (role) {
+        setCognitoSystemPrompt(role.systemPrompt);
+      }
+    } else {
+      setCurrentMuseRoleName(roleName);
+      const role = getRoleByName(roleName);
+      if (role) {
+        setMuseSystemPrompt(role.systemPrompt);
+      }
+    }
+  }, [getRoleByName]);
+
+  // 保存会话状态
+  useEffect(() => {
+    if (currentSessionId && messages.length > 0) {
+      updateCurrentSession(messages, notepadContent);
+    }
+  }, [currentSessionId, messages, notepadContent, updateCurrentSession]);
+
 
   return (
     <div className={`flex flex-col h-screen bg-white shadow-2xl overflow-hidden border-x border-gray-300 ${isNotepadFullscreen ? 'fixed inset-0 z-40' : 'relative'}`}>
@@ -493,6 +587,18 @@ const App: React.FC = () => {
             </>
           )}
           <Separator />
+          <button
+            onClick={() => setIsSessionManagerOpen(true)}
+            className="p-1.5 md:p-2 text-gray-500 hover:text-blue-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+            aria-label="会话管理" title="会话管理" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}>
+            <History size={20} />
+          </button>
+          <button
+            onClick={() => setIsRoleManagerOpen(true)}
+            className="p-1.5 md:p-2 text-gray-500 hover:text-purple-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+            aria-label="角色管理" title="角色管理" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}>
+            <Users size={20} />
+          </button>
            <button onClick={openSettingsModal}
             className="p-1.5 md:p-2 text-gray-500 hover:text-sky-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
             aria-label="打开设置" title="打开设置" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}>
@@ -664,6 +770,34 @@ const App: React.FC = () => {
           onOpenAiCognitoModelIdChange={(e) => setOpenAiCognitoModelId(e.target.value)}
           openAiMuseModelId={openAiMuseModelId}
           onOpenAiMuseModelIdChange={(e) => setOpenAiMuseModelId(e.target.value)}
+        />
+      )}
+      
+      {/* 会话管理器 */}
+      {isSessionManagerOpen && (
+        <SessionManager
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          onCreateSession={handleCreateSession}
+          onSwitchSession={handleSwitchSession}
+          onDeleteSession={handleDeleteSession}
+          onRenameSession={renameSession}
+          onClose={() => setIsSessionManagerOpen(false)}
+        />
+      )}
+      
+      {/* 角色管理器 */}
+      {isRoleManagerOpen && (
+        <RoleManager
+          roles={allRoles}
+          currentCognitoRole={currentCognitoRole}
+          currentMuseRole={currentMuseRole}
+          onCreateRole={createRole}
+          onUpdateRole={updateRole}
+          onDeleteRole={deleteRole}
+          onDuplicateRole={duplicateRole}
+          onSelectRole={handleSelectRole}
+          onClose={() => setIsRoleManagerOpen(false)}
         />
       )}
     </div>
