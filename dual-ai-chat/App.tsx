@@ -36,7 +36,10 @@ import {
   CURRENT_SESSION_ID_STORAGE_KEY,
   CUSTOM_AI_ROLES_STORAGE_KEY,
 } from './constants';
-import { BotMessageSquare, AlertTriangle, RefreshCcw as RefreshCwIcon, Settings2, Brain, Sparkles, Database, History, Users } from 'lucide-react'; 
+import { BotMessageSquare, AlertTriangle, RefreshCcw as RefreshCwIcon, Settings2, Brain, Sparkles, Database, History, Users } from 'lucide-react';
+import { Button } from './components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { cn } from './lib/utils'; 
 
 import { useChatLogic } from './hooks/useChatLogic';
 import { useNotepadLogic } from './hooks/useNotepadLogic';
@@ -450,10 +453,7 @@ const App: React.FC = () => {
         if (apiKeyStatus.isInvalid) return "环境变量中的 Google Gemini API 密钥无效或权限不足。请检查该密钥。";
     }
     return apiKeyStatus.message; 
-  }, [apiKeyStatus, useCustomApiConfig, useOpenAiApiConfig]);
-
-  const modelSelectorBaseClass = "bg-white border border-gray-400 text-gray-800 text-sm rounded-md p-1.5 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none disabled:opacity-70 disabled:cursor-not-allowed";
-  const modelSelectorWidthClass = "w-40 md:w-44"; 
+  }, [apiKeyStatus, useCustomApiConfig, useOpenAiApiConfig]); 
 
   const handleUseCustomGeminiApiConfigChange = () => {
     if (!isLoading) {
@@ -531,84 +531,116 @@ const App: React.FC = () => {
 
 
   return (
-    <div className={`flex flex-col h-screen bg-white shadow-2xl overflow-hidden border-x border-gray-300 ${isNotepadFullscreen ? 'fixed inset-0 z-40' : 'relative'}`}>
-      <header className={`p-3 md:p-4 bg-gray-50 border-b border-gray-300 flex items-center justify-between shrink-0 space-x-2 md:space-x-3 flex-wrap ${isNotepadFullscreen ? 'relative z-0' : 'relative z-10'}`}>
+    <div className={cn("flex flex-col h-screen bg-background shadow-2xl overflow-hidden border-x border-border", isNotepadFullscreen ? 'fixed inset-0 z-40' : 'relative')}>
+      <header className={cn("p-3 md:p-4 bg-background border-b border-border flex items-center justify-between shrink-0 space-x-2 md:space-x-3 flex-wrap", isNotepadFullscreen ? 'relative z-0' : 'relative z-10')}>
         <div className="flex items-center shrink-0">
-          <BotMessageSquare size={28} className="mr-2 md:mr-3 text-sky-600" />
-          <h1 className="text-xl md:text-2xl font-semibold text-sky-600">Dual AI Chat</h1>
+          <BotMessageSquare size={28} className="mr-2 md:mr-3 text-primary" />
+          <h1 className="text-xl md:text-2xl font-semibold text-primary">Dual AI Chat</h1>
         </div>
 
         <div className="flex items-center space-x-1 md:space-x-2 flex-wrap justify-end gap-y-2">
           {useOpenAiApiConfig ? (
             <>
-              <div className="flex items-center p-1.5 bg-indigo-50 border border-indigo-300 rounded-md" title={`OpenAI Cognito: ${openAiCognitoModelId || '未指定'}`}>
-                <Brain size={18} className="mr-1.5 text-indigo-600 flex-shrink-0" />
-                <span className="text-sm font-medium text-indigo-700 whitespace-nowrap hidden sm:inline">Cognito:</span>
-                <span className="text-sm font-medium text-indigo-700 whitespace-nowrap ml-1 sm:ml-0">{openAiCognitoModelId || '未指定'}</span>
+              <div className="flex items-center p-2 bg-secondary rounded-md border" title={`OpenAI Cognito: ${openAiCognitoModelId || '未指定'}`}>
+                <Brain size={18} className="mr-1.5 text-secondary-foreground flex-shrink-0" />
+                <span className="text-sm font-medium text-secondary-foreground whitespace-nowrap hidden sm:inline">Cognito:</span>
+                <span className="text-sm font-medium text-secondary-foreground whitespace-nowrap ml-1 sm:ml-0">{openAiCognitoModelId || '未指定'}</span>
               </div>
               <Separator />
-              <div className="flex items-center p-1.5 bg-purple-50 border border-purple-300 rounded-md" title={`OpenAI Muse: ${openAiMuseModelId || '未指定'}`}>
-                <Sparkles size={18} className="mr-1.5 text-purple-600 flex-shrink-0" />
-                <span className="text-sm font-medium text-purple-700 whitespace-nowrap hidden sm:inline">Muse:</span>
-                <span className="text-sm font-medium text-purple-700 whitespace-nowrap ml-1 sm:ml-0">{openAiMuseModelId || '未指定'}</span>
+              <div className="flex items-center p-2 bg-accent rounded-md border" title={`OpenAI Muse: ${openAiMuseModelId || '未指定'}`}>
+                <Sparkles size={18} className="mr-1.5 text-accent-foreground flex-shrink-0" />
+                <span className="text-sm font-medium text-accent-foreground whitespace-nowrap hidden sm:inline">Muse:</span>
+                <span className="text-sm font-medium text-accent-foreground whitespace-nowrap ml-1 sm:ml-0">{openAiMuseModelId || '未指定'}</span>
               </div>
             </>
           ) : (
             <>
               <div className="flex items-center" title={`Cognito Model: ${actualCognitoModelDetails.name}`}>
                  <label htmlFor="cognitoModelSelector" className="sr-only">Cognito AI 模型</label>
-                 <Brain size={18} className="mr-1.5 text-green-600 flex-shrink-0" aria-hidden="true" />
-                <span className="text-sm font-medium text-gray-700 mr-1 hidden sm:inline">Cognito:</span>
-                <select 
-                  id="cognitoModelSelector" 
-                  value={selectedCognitoModelApiName} 
-                  onChange={(e) => setSelectedCognitoModelApiName(e.target.value)}
-                  className={`${modelSelectorBaseClass} ${modelSelectorWidthClass}`}
-                  aria-label="选择Cognito的AI模型" 
-                  disabled={isLoading || useOpenAiApiConfig}>
-                  {MODELS.map((model) => (<option key={`cognito-${model.id}`} value={model.apiName}>{model.name}</option>))}
-                </select>
+                 <Brain size={18} className="mr-1.5 text-primary flex-shrink-0" aria-hidden="true" />
+                <span className="text-sm font-medium text-foreground mr-1 hidden sm:inline">Cognito:</span>
+                <Select
+                  value={selectedCognitoModelApiName}
+                  onValueChange={setSelectedCognitoModelApiName}
+                  disabled={isLoading || useOpenAiApiConfig}
+                >
+                  <SelectTrigger className="w-40 md:w-44">
+                    <SelectValue aria-label="选择Cognito的AI模型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODELS.map((model) => (
+                      <SelectItem key={`cognito-${model.id}`} value={model.apiName}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Separator />
               <div className="flex items-center" title={`Muse Model: ${actualMuseModelDetails.name}`}>
                 <label htmlFor="museModelSelector" className="sr-only">Muse AI 模型</label>
                 <Sparkles size={18} className="mr-1.5 text-purple-600 flex-shrink-0" aria-hidden="true" />
-                <span className="text-sm font-medium text-gray-700 mr-1 hidden sm:inline">Muse:</span>
-                <select 
-                  id="museModelSelector" 
-                  value={selectedMuseModelApiName} 
-                  onChange={(e) => setSelectedMuseModelApiName(e.target.value)}
-                  className={`${modelSelectorBaseClass} ${modelSelectorWidthClass}`}
-                  aria-label="选择Muse的AI模型" 
-                  disabled={isLoading || useOpenAiApiConfig}>
-                  {MODELS.map((model) => (<option key={`muse-${model.id}`} value={model.apiName}>{model.name}</option>))}
-                </select>
+                <span className="text-sm font-medium text-foreground mr-1 hidden sm:inline">Muse:</span>
+                <Select
+                  value={selectedMuseModelApiName}
+                  onValueChange={setSelectedMuseModelApiName}
+                  disabled={isLoading || useOpenAiApiConfig}
+                >
+                  <SelectTrigger className="w-40 md:w-44">
+                    <SelectValue aria-label="选择Muse的AI模型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODELS.map((model) => (
+                      <SelectItem key={`muse-${model.id}`} value={model.apiName}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </>
           )}
           <Separator />
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setIsSessionManagerOpen(true)}
-            className="p-1.5 md:p-2 text-gray-500 hover:text-blue-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
-            aria-label="会话管理" title="会话管理" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}>
+            aria-label="会话管理" 
+            title="会话管理" 
+            disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}
+          >
             <History size={20} />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setIsRoleManagerOpen(true)}
-            className="p-1.5 md:p-2 text-gray-500 hover:text-purple-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
-            aria-label="角色管理" title="角色管理" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}>
+            aria-label="角色管理" 
+            title="角色管理" 
+            disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}
+          >
             <Users size={20} />
-          </button>
-           <button onClick={openSettingsModal}
-            className="p-1.5 md:p-2 text-gray-500 hover:text-sky-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
-            aria-label="打开设置" title="打开设置" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}>
-            <Settings2 size={20} /> 
-          </button>
-          <button onClick={handleClearChat}
-            className="p-1.5 md:p-2 text-gray-500 hover:text-sky-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-gray-50 rounded-md shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
-            aria-label="清空会话" title="清空会话" disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}
-            ><RefreshCwIcon size={20} /> 
-          </button>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openSettingsModal}
+            aria-label="打开设置" 
+            title="打开设置" 
+            disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}
+          >
+            <Settings2 size={20} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClearChat}
+            aria-label="清空会话" 
+            title="清空会话" 
+            disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}
+          >
+            <RefreshCwIcon size={20} />
+          </Button>
         </div>
       </header>
 
@@ -622,7 +654,7 @@ const App: React.FC = () => {
             <div className="flex flex-col flex-grow h-full"> 
               <div 
                 ref={chatContainerRef} 
-                className="flex-grow p-4 space-y-4 overflow-y-auto bg-gray-200 scroll-smooth"
+                className="flex-grow p-4 space-y-4 overflow-y-auto bg-muted/30 scroll-smooth"
                 onScroll={handleChatScroll}
               >
                 {messages.map((msg) => (
@@ -640,7 +672,7 @@ const App: React.FC = () => {
                 isApiKeyMissing={apiKeyStatus.isMissing || apiKeyStatus.isInvalid || false}
                 onStopGenerating={handleStopGeneratingAppLevel}
               />
-              <div className="px-4 py-2 text-xs text-gray-600 text-center bg-gray-100">
+              <div className="px-4 py-2 text-xs text-muted-foreground text-center bg-muted/50">
                 {isLoading ? (
                   isInternalDiscussionActive ? (
                     <>
@@ -676,7 +708,7 @@ const App: React.FC = () => {
         {!isNotepadFullscreen && (
           <div
             id="panel-resizer"
-            className="w-1.5 h-full bg-gray-300 hover:bg-sky-500 cursor-col-resize select-none shrink-0 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-1.5 h-full bg-border hover:bg-primary cursor-col-resize select-none shrink-0 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-1 focus:ring-ring"
             onMouseDown={handleMouseDownOnResizer}
             onKeyDown={handleResizerKeyDown}
             role="separator"
@@ -693,11 +725,11 @@ const App: React.FC = () => {
         
         <div
           id="notepad-panel-wrapper"
-          className={`h-full bg-gray-50 flex flex-col ${
+          className={cn("h-full bg-background flex flex-col", 
             isNotepadFullscreen 
             ? 'fixed inset-0 z-50 w-screen' 
             : 'overflow-hidden'
-          }`}
+          )}
           style={!isNotepadFullscreen ? { width: `${100 - chatPanelWidthPercent}%` } : {}}
         >
           <Notepad 
@@ -717,7 +749,7 @@ const App: React.FC = () => {
        {(apiKeyStatus.isMissing || apiKeyStatus.isInvalid) && apiKeyBannerMessage &&
         !isNotepadFullscreen &&
         (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg shadow-lg flex items-center text-sm z-50 max-w-md text-center">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg shadow-lg flex items-center text-sm z-50 max-w-md text-center">
             <AlertTriangle size={20} className="mr-2 shrink-0" /> {apiKeyBannerMessage}
         </div>
       )}

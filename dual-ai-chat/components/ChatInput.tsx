@@ -1,7 +1,9 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, XCircle, StopCircle } from 'lucide-react'; // Added StopCircle
-import LoadingSpinner from './LoadingSpinner';
+import { Send, Paperclip, XCircle, StopCircle } from 'lucide-react';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
+import { cn } from '../lib/utils';
 
 interface ChatInputProps {
   onSendMessage: (message: string, imageFile?: File | null) => void;
@@ -126,23 +128,25 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
   const isDisabledInput = isLoading || isApiKeyMissing;
 
   return (
-    <form onSubmit={handleSubmit} className="px-4 pt-4 pb-0 mb-0 bg-gray-100 border-t border-gray-300">
+    <form onSubmit={handleSubmit} className="px-4 pt-4 pb-0 mb-0 bg-background border-t border-border">
       {imagePreviewUrl && selectedImage && (
-        <div className="mb-2 p-2 bg-gray-200 rounded-md relative max-w-xs border border-gray-300">
+        <div className="mb-2 p-2 bg-muted rounded-md relative max-w-xs border border-border">
           <img src={imagePreviewUrl} alt={selectedImage.name || "图片预览"} className="max-h-24 max-w-full rounded" />
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={removeImage}
-            className="absolute top-1 right-1 bg-black bg-opacity-40 text-white rounded-full p-0.5 hover:bg-opacity-60"
+            className="absolute top-1 right-1 h-6 w-6 bg-black/40 text-white rounded-full hover:bg-black/60"
             aria-label="移除图片"
           >
-            <XCircle size={20} />
-          </button>
-          <div className="text-xs text-gray-600 mt-1 truncate">{selectedImage.name} ({(selectedImage.size / 1024).toFixed(1)} KB)</div>
+            <XCircle size={16} />
+          </Button>
+          <div className="text-xs text-muted-foreground mt-1 truncate">{selectedImage.name} ({(selectedImage.size / 1024).toFixed(1)} KB)</div>
         </div>
       )}
-      <div className="flex items-center space-x-2"> {/* Changed items-end to items-center */}
-        <textarea
+      <div className="flex items-center space-x-2">
+        <Textarea
           ref={textareaRef}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -152,7 +156,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           placeholder="询问任何问题"
-          className={`flex-grow p-3 bg-white border border-gray-400 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none placeholder-gray-500 text-gray-800 disabled:opacity-60 resize-none min-h-[48px] max-h-[150px] ${isDraggingOver ? 'ring-2 ring-sky-500 border-sky-500' : ''}`}
+          className={cn(
+            "flex-grow resize-none min-h-[48px] max-h-[150px]",
+            isDraggingOver && "ring-2 ring-primary"
+          )}
           rows={1}
           disabled={isDisabledInput}
           aria-label="聊天输入框"
@@ -170,33 +177,30 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
           className="hidden"
           aria-label="选择图片文件"
         />
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={handleFileButtonClick}
-          className="p-3 bg-gray-300 hover:bg-gray-400 rounded-lg text-gray-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-gray-100 disabled:opacity-50 disabled:cursor-not-allowed h-[48px]" // Removed self-end
           disabled={isDisabledInput}
           aria-label="添加图片附件"
           title="添加图片"
+          className="h-[48px] w-[48px]"
         >
-          <Paperclip size={24} />
-        </button>
-        <button
+          <Paperclip size={20} />
+        </Button>
+        <Button
           type={isLoading ? "button" : "submit"}
+          variant={isLoading ? "destructive" : "default"}
+          size="icon"
           onClick={isLoading ? onStopGenerating : undefined}
-          className={`p-3 rounded-lg text-white transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 h-[48px] flex items-center justify-center ${ // Removed self-end
-            isLoading
-            ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' // Stop button style
-            : `bg-sky-600 hover:bg-sky-700 focus:ring-sky-500 ${isApiKeyMissing || (!inputValue.trim() && !selectedImage) ? 'opacity-50 cursor-not-allowed' : ''}` // Send button style
-          }`}
           disabled={!isLoading && (isApiKeyMissing || (!inputValue.trim() && !selectedImage))}
           aria-label={isLoading ? "停止生成" : "发送消息"}
           title={isLoading ? "停止生成" : "发送消息"}
+          className="h-[48px] w-[48px]"
         >
-          {isLoading
-            ? <StopCircle size={24} />
-            : <Send size={24} />
-          }
-        </button>
+          {isLoading ? <StopCircle size={20} /> : <Send size={20} />}
+        </Button>
       </div>
     </form>
   );

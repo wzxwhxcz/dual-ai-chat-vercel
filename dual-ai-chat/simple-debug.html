@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Debug</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+      "react/": "https://esm.sh/react@18.2.0/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'react';
+    import ReactDOM from 'react-dom/client';
+
+    // 用ErrorBoundary包装应用
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null, errorInfo: null };
+      }
+
+      static getDerivedStateFromError(error) {
+        return { hasError: true };
+      }
+
+      componentDidCatch(error, errorInfo) {
+        console.error('ErrorBoundary caught an error:', error, errorInfo);
+        this.setState({
+          error: error,
+          errorInfo: errorInfo
+        });
+      }
+
+      render() {
+        if (this.state.hasError) {
+          return React.createElement('div', {
+            className: 'p-4 bg-red-100 border border-red-300 rounded'
+          }, [
+            React.createElement('h2', {
+              key: 'title',
+              className: 'text-xl font-bold text-red-800 mb-2'
+            }, 'React Error Caught!'),
+            React.createElement('pre', {
+              key: 'error',
+              className: 'text-sm text-red-700 whitespace-pre-wrap'
+            }, this.state.error && this.state.error.toString()),
+            React.createElement('details', {
+              key: 'details',
+              className: 'mt-2'
+            }, [
+              React.createElement('summary', {
+                key: 'summary',
+                className: 'text-red-800 font-medium cursor-pointer'
+              }, 'Error Details'),
+              React.createElement('pre', {
+                key: 'errorInfo',
+                className: 'text-xs text-red-600 mt-2 whitespace-pre-wrap'
+              }, this.state.errorInfo && this.state.errorInfo.componentStack)
+            ])
+          ]);
+        }
+
+        return this.props.children;
+      }
+    }
+
+    // 尝试加载真实的应用
+    const LoadAppComponent = () => {
+      const [loading, setLoading] = React.useState(true);
+      const [error, setError] = React.useState(null);
+      const [AppComponent, setAppComponent] = React.useState(null);
+
+      React.useEffect(() => {
+        async function loadApp() {
+          try {
+            console.log('开始导入App组件...');
+            const module = await import('./App.tsx');
+            console.log('App模块导入成功:', module);
+            setAppComponent(() => module.default);
+            setLoading(false);
+          } catch (err) {
+            console.error('导入App失败:', err);
+            setError(err.toString());
+            setLoading(false);
+          }
+        }
+        loadApp();
+      }, []);
+
+      if (loading) {
+        return React.createElement('div', {
+          className: 'p-4 bg-blue-100'
+        }, '正在加载应用...');
+      }
+
+      if (error) {
+        return React.createElement('div', {
+          className: 'p-4 bg-red-100 border border-red-300 rounded'
+        }, [
+          React.createElement('h2', {
+            key: 'title',
+            className: 'text-xl font-bold text-red-800 mb-2'
+          }, 'Import Error!'),
+          React.createElement('pre', {
+            key: 'error',
+            className: 'text-sm text-red-700 whitespace-pre-wrap'
+          }, error)
+        ]);
+      }
+
+      if (AppComponent) {
+        return React.createElement(AppComponent);
+      }
+
+      return React.createElement('div', {
+        className: 'p-4 bg-yellow-100'
+      }, '未知状态');
+    };
+
+    // 全局错误处理
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'fixed top-0 left-0 w-full bg-red-500 text-white p-2 z-50';
+      errorDiv.textContent = 'Global Error: ' + event.error.message;
+      document.body.appendChild(errorDiv);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'fixed top-4 left-0 w-full bg-orange-500 text-white p-2 z-50';
+      errorDiv.textContent = 'Promise Rejection: ' + event.reason;
+      document.body.appendChild(errorDiv);
+    });
+
+    try {
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element");
+      }
+
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        React.createElement(ErrorBoundary, {}, 
+          React.createElement(LoadAppComponent)
+        )
+      );
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      document.getElementById('root').innerHTML = '<div class="p-4 bg-red-100 text-red-800">Initialization Error: ' + error.message + '</div>';
+    }
+  </script>
+</body>
+</html>

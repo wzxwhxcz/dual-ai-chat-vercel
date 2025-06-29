@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test React</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+  <div id="root"></div>
+  
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client"
+    }
+  }
+  </script>
+  
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+
+    function TestApp() {
+      return React.createElement('div', {
+        className: 'p-8 text-center'
+      }, [
+        React.createElement('h1', {
+          key: 'title',
+          className: 'text-3xl font-bold text-blue-600 mb-4'
+        }, 'React Test Working!'),
+        React.createElement('p', {
+          key: 'desc',
+          className: 'text-gray-700'
+        }, 'If you can see this, React is loading correctly.')
+      ]);
+    }
+
+    const rootElement = document.getElementById('root');
+    const root = createRoot(rootElement);
+    root.render(React.createElement(TestApp));
+  </script>
+</body>
+</html>
