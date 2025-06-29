@@ -2,7 +2,14 @@
 import React from 'react';
 import { DiscussionMode } from '../types';
 import { MIN_MANUAL_FIXED_TURNS } from '../constants'; 
-import { X, Bot, MessagesSquare, SlidersHorizontal, Info, RotateCcw, CaseSensitive, KeyRound, Globe, Settings, Database, Brain, Sparkles } from 'lucide-react'; 
+import { X, Bot, MessagesSquare, SlidersHorizontal, Info, RotateCcw, CaseSensitive, KeyRound, Globe, Settings, Database, Brain, Sparkles } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Switch } from './ui/switch';
+import { Slider } from './ui/slider';
+import { cn } from '../lib/utils'; 
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -127,165 +134,195 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
-  const inputBaseClass = "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 text-sm disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed";
-  const sectionHeadingClass = "text-lg font-medium text-gray-800 mb-3 border-b pb-2";
-  const toggleLabelBaseClass = "flex items-center text-sm font-medium";
-  const toggleButtonContainerClass = "flex items-center";
-  const toggleButtonClass = "relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500";
-  const toggleButtonSwitchClass = "inline-block w-11 h-6 rounded-full";
-  const toggleButtonKnobClass = "absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform";
-  const toggleTextClass = "ml-3 select-none text-sm text-gray-600 min-w-[3rem] text-left";
 
   return (
-    <div 
-        className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 transition-opacity duration-300 ease-in-out"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-modal-title"
-    >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col transform transition-all duration-300 ease-in-out scale-100">
-        <header className="p-4 border-b border-gray-300 flex items-center justify-between sticky top-0 bg-gray-50 rounded-t-lg z-10">
-          <h2 id="settings-modal-title" className="text-xl font-semibold text-sky-700">应用程序设置</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-gray-500 hover:text-red-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-            aria-label="关闭设置面板"
-            title="关闭设置"
-            disabled={isLoading}
-          >
-            <X size={24} />
-          </button>
-        </header>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold text-primary">应用程序设置</DialogTitle>
+          <DialogDescription>
+            配置您的 AI 聊天应用程序设置
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="p-6 space-y-6 overflow-y-auto settings-modal-content-scrollbar">
+        <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2">
           {/* API Configuration Section */}
           <section aria-labelledby="api-config-settings-heading">
-            <h3 id="api-config-settings-heading" className={sectionHeadingClass}>API 配置</h3>
-            <div className="space-y-5">
+            <h3 id="api-config-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">API 配置</h3>
+            <div className="space-y-4">
               {/* Gemini Custom API */}
-              <div className={`p-4 border rounded-lg ${useCustomApiConfig ? 'border-sky-300 bg-sky-50' : 'border-gray-200 bg-gray-50'}`}>
+              <div className={cn("p-4 border rounded-lg", useCustomApiConfig ? 'border-primary bg-primary/5' : 'border-border bg-muted/50')}>
                 <div className="flex items-center justify-between mb-3">
-                  <label htmlFor="useCustomGeminiApiToggle" className={`${toggleLabelBaseClass} ${isLoading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-sky-600'}`}
+                  <label htmlFor="useCustomGeminiApiToggle" className="flex items-center text-sm font-medium cursor-pointer"
                     title={useCustomApiConfig ? "禁用自定义Gemini API配置" : "启用自定义Gemini API配置"}>
-                    <Settings size={20} className="mr-2 text-sky-600" />
-                    <span className="select-none">使用自定义 Gemini API 配置:</span>
+                    <Settings size={20} className="mr-2 text-primary" />
+                    <span>使用自定义 Gemini API 配置</span>
                   </label>
-                  <div className={toggleButtonContainerClass}>
-                      <button
-                          id="useCustomGeminiApiToggle"
-                          onClick={handleUseCustomGeminiApiConfigToggle}
-                          className={`${toggleButtonClass} ${isLoading ? 'cursor-not-allowed opacity-70' : ''}`}
-                          disabled={isLoading} role="switch" aria-checked={useCustomApiConfig} >
-                          <span className={`${toggleButtonSwitchClass} ${useCustomApiConfig ? 'bg-sky-500' : 'bg-gray-300'}`}></span>
-                          <span className={`${toggleButtonKnobClass} ${useCustomApiConfig ? 'translate-x-4' : ''}`}></span>
-                      </button>
-                      <span className={toggleTextClass}>{useCustomApiConfig ? '开启' : '关闭'}</span>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="useCustomGeminiApiToggle"
+                      checked={useCustomApiConfig}
+                      onCheckedChange={handleUseCustomGeminiApiConfigToggle}
+                      disabled={isLoading}
+                      aria-label="切换自定义 Gemini API 配置"
+                    />
+                    <span className="text-sm text-muted-foreground min-w-[3rem]">
+                      {useCustomApiConfig ? '开启' : '关闭'}
+                    </span>
                   </div>
                 </div>
-                <div className="space-y-3 pl-1">
+                <div className="space-y-3">
                   <div>
-                    <label htmlFor="customApiEndpoint" className={`flex items-center text-sm font-medium mb-1 ${useCustomApiConfig ? 'text-gray-700' : 'text-gray-400'}`}>
-                      <Globe size={16} className={`mr-2 ${useCustomApiConfig ? 'text-sky-600' : 'text-gray-400'}`} />
+                    <label htmlFor="customApiEndpoint" className="flex items-center text-sm font-medium mb-2">
+                      <Globe size={16} className="mr-2 text-primary" />
                       Gemini API 端点 (可选)
                     </label>
-                    <input type="text" id="customApiEndpoint" value={customApiEndpoint} onChange={onCustomApiEndpointChange} className={inputBaseClass}
-                      placeholder="例如: https://my-proxy.com/gemini" disabled={isLoading || !useCustomApiConfig} aria-label="自定义 Gemini API 端点" />
-                    <p className={`text-xs mt-1 ${useCustomApiConfig ? 'text-gray-500' : 'text-gray-400'}`}>若留空，将使用默认 Google API 端点。</p>
+                    <Input
+                      id="customApiEndpoint"
+                      type="text"
+                      value={customApiEndpoint}
+                      onChange={onCustomApiEndpointChange}
+                      placeholder="例如: https://my-proxy.com/gemini"
+                      disabled={isLoading || !useCustomApiConfig}
+                      aria-label="自定义 Gemini API 端点"
+                    />
+                    <p className="text-xs mt-1 text-muted-foreground">若留空，将使用默认 Google API 端点。</p>
                   </div>
                   <div>
-                    <label htmlFor="customApiKey" className={`flex items-center text-sm font-medium mb-1 ${useCustomApiConfig ? 'text-gray-700' : 'text-gray-400'}`}>
-                      <KeyRound size={16} className={`mr-2 ${useCustomApiConfig ? 'text-sky-600' : 'text-gray-400'}`} />
+                    <label htmlFor="customApiKey" className="flex items-center text-sm font-medium mb-2">
+                      <KeyRound size={16} className="mr-2 text-primary" />
                       Gemini API 密钥
                     </label>
-                    <input type="password" id="customApiKey" value={customApiKey} onChange={onCustomApiKeyChange} className={inputBaseClass}
-                      placeholder="输入您的 Gemini API 密钥" disabled={isLoading || !useCustomApiConfig} aria-label="自定义 Gemini API 密钥" required={useCustomApiConfig} />
+                    <Input
+                      id="customApiKey"
+                      type="password"
+                      value={customApiKey}
+                      onChange={onCustomApiKeyChange}
+                      placeholder="输入您的 Gemini API 密钥"
+                      disabled={isLoading || !useCustomApiConfig}
+                      aria-label="自定义 Gemini API 密钥"
+                      required={useCustomApiConfig}
+                    />
                   </div>
                 </div>
               </div>
 
               {/* OpenAI-Compatible API */}
-              <div className={`p-4 border rounded-lg ${useOpenAiApiConfig ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-gray-50'}`}>
+              <div className={cn("p-4 border rounded-lg", useOpenAiApiConfig ? 'border-secondary bg-secondary/5' : 'border-border bg-muted/50')}>
                 <div className="flex items-center justify-between mb-3">
-                   <label htmlFor="useOpenAiApiToggle" className={`${toggleLabelBaseClass} ${isLoading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-600'}`}
+                   <label htmlFor="useOpenAiApiToggle" className="flex items-center text-sm font-medium cursor-pointer"
                     title={useOpenAiApiConfig ? "禁用OpenAI API配置" : "启用OpenAI API配置 (例如本地Ollama, LM Studio)"}>
-                    <Database size={20} className="mr-2 text-indigo-600" />
-                    <span className="select-none">使用 OpenAI 兼容 API 配置:</span>
+                    <Database size={20} className="mr-2 text-secondary-foreground" />
+                    <span>使用 OpenAI 兼容 API 配置</span>
                   </label>
-                  <div className={toggleButtonContainerClass}>
-                      <button
-                          id="useOpenAiApiToggle"
-                          onClick={handleUseOpenAiApiConfigToggle}
-                          className={`${toggleButtonClass} ${isLoading ? 'cursor-not-allowed opacity-70' : ''}`}
-                          disabled={isLoading} role="switch" aria-checked={useOpenAiApiConfig} >
-                          <span className={`${toggleButtonSwitchClass} ${useOpenAiApiConfig ? 'bg-indigo-500' : 'bg-gray-300'}`}></span>
-                          <span className={`${toggleButtonKnobClass} ${useOpenAiApiConfig ? 'translate-x-4' : ''}`}></span>
-                      </button>
-                      <span className={toggleTextClass}>{useOpenAiApiConfig ? '开启' : '关闭'}</span>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="useOpenAiApiToggle"
+                      checked={useOpenAiApiConfig}
+                      onCheckedChange={handleUseOpenAiApiConfigToggle}
+                      disabled={isLoading}
+                      aria-label="切换 OpenAI API 配置"
+                    />
+                    <span className="text-sm text-muted-foreground min-w-[3rem]">
+                      {useOpenAiApiConfig ? '开启' : '关闭'}
+                    </span>
                   </div>
                 </div>
-                <div className="space-y-3 pl-1">
+                <div className="space-y-3">
                   <div>
-                    <label htmlFor="openAiApiBaseUrl" className={`flex items-center text-sm font-medium mb-1 ${useOpenAiApiConfig ? 'text-gray-700' : 'text-gray-400'}`}>
-                      <Globe size={16} className={`mr-2 ${useOpenAiApiConfig ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <label htmlFor="openAiApiBaseUrl" className="flex items-center text-sm font-medium mb-2">
+                      <Globe size={16} className="mr-2 text-secondary-foreground" />
                       API 基地址 (Base URL)
                     </label>
-                    <input type="text" id="openAiApiBaseUrl" value={openAiApiBaseUrl} onChange={onOpenAiApiBaseUrlChange} className={inputBaseClass}
-                      placeholder="例如: http://localhost:11434/v1" disabled={isLoading || !useOpenAiApiConfig} aria-label="OpenAI API 基地址" required={useOpenAiApiConfig}/>
+                    <Input
+                      id="openAiApiBaseUrl"
+                      type="text"
+                      value={openAiApiBaseUrl}
+                      onChange={onOpenAiApiBaseUrlChange}
+                      placeholder="例如: http://localhost:11434/v1"
+                      disabled={isLoading || !useOpenAiApiConfig}
+                      aria-label="OpenAI API 基地址"
+                      required={useOpenAiApiConfig}
+                    />
                   </div>
                   <div>
-                    <label htmlFor="openAiApiKey" className={`flex items-center text-sm font-medium mb-1 ${useOpenAiApiConfig ? 'text-gray-700' : 'text-gray-400'}`}>
-                      <KeyRound size={16} className={`mr-2 ${useOpenAiApiConfig ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <label htmlFor="openAiApiKey" className="flex items-center text-sm font-medium mb-2">
+                      <KeyRound size={16} className="mr-2 text-secondary-foreground" />
                       API 密钥 (可选)
                     </label>
-                    <input type="password" id="openAiApiKey" value={openAiApiKey} onChange={onOpenAiApiKeyChange} className={inputBaseClass}
-                      placeholder="输入您的 OpenAI API 密钥 (部分服务可能不需要)" disabled={isLoading || !useOpenAiApiConfig} aria-label="OpenAI API 密钥" />
+                    <Input
+                      id="openAiApiKey"
+                      type="password"
+                      value={openAiApiKey}
+                      onChange={onOpenAiApiKeyChange}
+                      placeholder="输入您的 OpenAI API 密钥 (部分服务可能不需要)"
+                      disabled={isLoading || !useOpenAiApiConfig}
+                      aria-label="OpenAI API 密钥"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="openAiCognitoModelId" className={`flex items-center text-sm font-medium mb-1 ${useOpenAiApiConfig ? 'text-gray-700' : 'text-gray-400'}`}>
-                      <Brain size={16} className={`mr-2 ${useOpenAiApiConfig ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <label htmlFor="openAiCognitoModelId" className="flex items-center text-sm font-medium mb-2">
+                      <Brain size={16} className="mr-2 text-secondary-foreground" />
                       Cognito 模型 ID
                     </label>
-                    <input type="text" id="openAiCognitoModelId" value={openAiCognitoModelId} onChange={onOpenAiCognitoModelIdChange} className={inputBaseClass}
-                      placeholder="例如: llama3, gpt-4-turbo" disabled={isLoading || !useOpenAiApiConfig} aria-label="OpenAI Cognito 模型 ID" required={useOpenAiApiConfig}/>
+                    <Input
+                      id="openAiCognitoModelId"
+                      type="text"
+                      value={openAiCognitoModelId}
+                      onChange={onOpenAiCognitoModelIdChange}
+                      placeholder="例如: llama3, gpt-4-turbo"
+                      disabled={isLoading || !useOpenAiApiConfig}
+                      aria-label="OpenAI Cognito 模型 ID"
+                      required={useOpenAiApiConfig}
+                    />
                   </div>
                   <div>
-                    <label htmlFor="openAiMuseModelId" className={`flex items-center text-sm font-medium mb-1 ${useOpenAiApiConfig ? 'text-gray-700' : 'text-gray-400'}`}>
-                      <Sparkles size={16} className={`mr-2 ${useOpenAiApiConfig ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <label htmlFor="openAiMuseModelId" className="flex items-center text-sm font-medium mb-2">
+                      <Sparkles size={16} className="mr-2 text-purple-600" />
                       Muse 模型 ID
                     </label>
-                    <input type="text" id="openAiMuseModelId" value={openAiMuseModelId} onChange={onOpenAiMuseModelIdChange} className={inputBaseClass}
-                      placeholder="例如: llama3, gpt-3.5-turbo" disabled={isLoading || !useOpenAiApiConfig} aria-label="OpenAI Muse 模型 ID" required={useOpenAiApiConfig}/>
+                    <Input
+                      id="openAiMuseModelId"
+                      type="text"
+                      value={openAiMuseModelId}
+                      onChange={onOpenAiMuseModelIdChange}
+                      placeholder="例如: llama3, gpt-3.5-turbo"
+                      disabled={isLoading || !useOpenAiApiConfig}
+                      aria-label="OpenAI Muse 模型 ID"
+                      required={useOpenAiApiConfig}
+                    />
                   </div>
                 </div>
               </div>
               
               {!useCustomApiConfig && !useOpenAiApiConfig && (
-                <p className="text-xs text-gray-600 text-center mt-1 p-2 bg-gray-100 rounded-md">当前配置为使用环境变量中的 Google Gemini API 密钥。</p>
+                <p className="text-xs text-muted-foreground text-center mt-1 p-2 bg-muted rounded-md">当前配置为使用环境变量中的 Google Gemini API 密钥。</p>
               )}
             </div>
           </section>
 
           {/* Font Size Settings Section */}
           <section aria-labelledby="font-size-settings-heading">
-            <h3 id="font-size-settings-heading" className={sectionHeadingClass}>文字大小</h3>
-            <div className="flex items-center space-x-2">
-                <CaseSensitive size={20} className="mr-1 text-sky-600 flex-shrink-0" />
-                <label className="text-sm text-gray-700 font-medium whitespace-nowrap">界面文字:</label>
+            <h3 id="font-size-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">文字大小</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                <div className="flex items-center space-x-2">
+                  <CaseSensitive size={20} className="text-primary flex-shrink-0" />
+                  <label className="text-sm font-medium">界面文字大小:</label>
+                </div>
                 <div className="flex flex-wrap gap-2">
                 {FONT_SIZE_OPTIONS.map(option => (
-                    <button
-                    key={option.value}
-                    onClick={() => !isLoading && onFontSizeScaleChange(option.value)}
-                    disabled={isLoading}
-                    className={`px-3 py-1.5 text-xs rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1
-                        ${fontSizeScale === option.value 
-                            ? 'bg-sky-600 text-white border-sky-700' 
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed'}
-                    `}
-                    aria-pressed={fontSizeScale === option.value}
+                    <Button
+                      key={option.value}
+                      variant={fontSizeScale === option.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => !isLoading && onFontSizeScaleChange(option.value)}
+                      disabled={isLoading}
+                      aria-pressed={fontSizeScale === option.value}
+                      aria-label={`设置字体大小为${option.label}`}
+                      className="min-w-[3rem]"
                     >
-                    {option.label}
-                    </button>
+                      {option.label}
+                    </Button>
                 ))}
                 </div>
             </div>
@@ -293,42 +330,43 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Discussion Settings Section */}
           <section aria-labelledby="discussion-settings-heading">
-            <h3 id="discussion-settings-heading" className={sectionHeadingClass}>讨论设置</h3>
+            <h3 id="discussion-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">讨论设置</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label htmlFor="discussionModeToggleModal" className={`${toggleLabelBaseClass} ${isLoading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-sky-600'}`}
+                <label htmlFor="discussionModeToggleModal" className="flex items-center text-sm font-medium cursor-pointer"
                   title={discussionMode === DiscussionMode.FixedTurns ? "切换到AI驱动轮次模式" : "切换到固定轮次模式"}>
-                  {discussionMode === DiscussionMode.FixedTurns ? <MessagesSquare size={20} className="mr-2 text-sky-600" /> : <Bot size={20} className="mr-2 text-sky-600" />}
-                  <span className="select-none">对话轮数模式:</span>
+                  {discussionMode === DiscussionMode.FixedTurns ? <MessagesSquare size={20} className="mr-2 text-primary" /> : <Bot size={20} className="mr-2 text-primary" />}
+                  <span>对话轮数模式</span>
                 </label>
-                <div className={toggleButtonContainerClass}>
-                    <button
-                        id="discussionModeToggleModal"
-                        onClick={handleDiscussionModeToggle}
-                         className={`${toggleButtonClass} ${isLoading ? 'cursor-not-allowed opacity-70' : ''}`}
-                        disabled={isLoading} role="switch" aria-checked={discussionMode === DiscussionMode.AiDriven}>
-                        <span className={`${toggleButtonSwitchClass} ${discussionMode === DiscussionMode.AiDriven ? 'bg-sky-500' : 'bg-gray-300'}`}></span>
-                        <span className={`${toggleButtonKnobClass} ${discussionMode === DiscussionMode.AiDriven ? 'translate-x-4' : ''}`}></span>
-                    </button>
-                    <span className={toggleTextClass}>
-                        {discussionMode === DiscussionMode.FixedTurns ? '固定轮次' : 'AI驱动'}
-                    </span>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="discussionModeToggleModal"
+                    checked={discussionMode === DiscussionMode.AiDriven}
+                    onCheckedChange={handleDiscussionModeToggle}
+                    disabled={isLoading}
+                    aria-label="切换对话模式"
+                  />
+                  <span className="text-sm text-muted-foreground min-w-[4rem]">
+                    {discussionMode === DiscussionMode.FixedTurns ? '固定轮次' : 'AI驱动'}
+                  </span>
                 </div>
               </div>
               {discussionMode === DiscussionMode.FixedTurns && (
-                <div className="flex items-center space-x-2 pl-7">
-                  <label htmlFor="manualFixedTurnsInputModal" className="text-sm text-gray-700 font-medium">固定轮数:</label>
-                  <input 
-                    type="number" 
-                    id="manualFixedTurnsInputModal" 
-                    value={manualFixedTurns} 
-                    onChange={onManualFixedTurnsChange}
-                    min={minManualFixedTurns} 
-                    disabled={isLoading}
-                    className="w-20 bg-white border border-gray-300 text-gray-800 text-sm rounded-md p-1.5 text-center focus:ring-1 focus:ring-sky-500 focus:border-sky-500 outline-none disabled:opacity-70 disabled:cursor-not-allowed"
-                    aria-label={`设置固定对话轮数, 最小 ${minManualFixedTurns}`}
-                  />
-                  <span className="text-sm text-gray-600">轮 (最小: {minManualFixedTurns})</span>
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 pl-6 bg-muted/30 p-3 rounded-md">
+                  <label htmlFor="manualFixedTurnsInputModal" className="text-sm font-medium">固定轮数:</label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      id="manualFixedTurnsInputModal"
+                      value={manualFixedTurns}
+                      onChange={onManualFixedTurnsChange}
+                      min={minManualFixedTurns}
+                      disabled={isLoading}
+                      className="w-20 text-center"
+                      aria-label={`设置固定对话轮数, 最小 ${minManualFixedTurns}`}
+                    />
+                    <span className="text-sm text-muted-foreground">轮 (最小: {minManualFixedTurns})</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -336,91 +374,89 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Model Performance Section */}
           <section aria-labelledby="performance-settings-heading">
-            <h3 id="performance-settings-heading" className={sectionHeadingClass}>模型性能</h3>
-            <div className="space-y-4">
+            <h3 id="performance-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">模型性能</h3>
+            <div className="space-y-6">
               {/* Temperature Control */}
               <div>
-                <label htmlFor="temperatureSlider" className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <SlidersHorizontal size={16} className="mr-2 text-sky-600" />
+                <label htmlFor="temperatureSlider" className="flex items-center text-sm font-medium mb-3">
+                  <SlidersHorizontal size={16} className="mr-2 text-primary" />
                   温度设置: {temperature.toFixed(1)}
                 </label>
                 <div className="flex items-center space-x-3">
-                  <span className="text-xs text-gray-500 w-8">0.0</span>
-                  <input
-                    type="range"
+                  <span className="text-xs text-muted-foreground w-8">0.0</span>
+                  <Slider
                     id="temperatureSlider"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={temperature}
-                    onChange={(e) => !isLoading && onTemperatureChange(parseFloat(e.target.value))}
+                    min={[0]}
+                    max={[2]}
+                    step={[0.1]}
+                    value={[temperature]}
+                    onValueChange={(value) => !isLoading && onTemperatureChange(value[0])}
                     disabled={isLoading}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-70
-                      slider-thumb:appearance-none slider-thumb:w-4 slider-thumb:h-4 slider-thumb:bg-sky-600 slider-thumb:rounded-full 
-                      slider-thumb:cursor-pointer slider-thumb:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className="flex-1"
                     aria-label="调整AI模型温度"
                   />
-                  <span className="text-xs text-gray-500 w-8">2.0</span>
+                  <span className="text-xs text-muted-foreground w-8">2.0</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-2">
                   低温度 (0.0-0.7): 更精确、一致的回答; 高温度 (0.8-2.0): 更创意、多样的回答
                 </p>
               </div>
 
               {/* Streaming Mode */}
               <div className="flex items-center justify-between">
-                <label htmlFor="streamModeToggleModal"
-                    className={`${toggleLabelBaseClass} ${isLoading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-sky-600'}`}
+                <label htmlFor="streamModeToggleModal" className="flex items-center text-sm font-medium cursor-pointer"
                     title="启用后将实时显示AI回复，提供更好的用户体验">
-                    <SlidersHorizontal size={20} className={`mr-2 ${streamMode ? 'text-sky-600' : 'text-gray-400'}`} />
-                    <span className="select-none">流式返回模式:</span>
+                    <SlidersHorizontal size={20} className="mr-2 text-primary" />
+                    <span>流式返回模式</span>
                 </label>
-                <div className={toggleButtonContainerClass}>
-                     <button
-                        id="streamModeToggleModal"
-                        onClick={() => !isLoading && onStreamModeChange(!streamMode)}
-                        className={`${toggleButtonClass} ${isLoading ? 'cursor-not-allowed opacity-70' : ''}`}
-                        disabled={isLoading} role="switch" aria-checked={streamMode}>
-                        <span className={`${toggleButtonSwitchClass} ${streamMode ? 'bg-sky-500' : 'bg-gray-300'}`}></span>
-                        <span className={`${toggleButtonKnobClass} ${streamMode ? 'translate-x-4' : ''}`}></span>
-                    </button>
-                    <span className={toggleTextClass}>
-                        {streamMode ? '开启' : '关闭'}
-                    </span>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="streamModeToggleModal"
+                    checked={streamMode}
+                    onCheckedChange={() => !isLoading && onStreamModeChange(!streamMode)}
+                    disabled={isLoading}
+                    aria-label="切换流式返回模式"
+                  />
+                  <span className="text-sm text-muted-foreground min-w-[3rem]">
+                    {streamMode ? '开启' : '关闭'}
+                  </span>
                 </div>
               </div>
 
               {/* Thinking Budget */}
               <div className="flex items-center justify-between">
-                <label htmlFor="thinkingBudgetToggleModal"
-                    className={`${toggleLabelBaseClass} transition-opacity ${isLoading || !actualSupportsThinkingConfig ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:text-sky-600'}`}
+                <label htmlFor="thinkingBudgetToggleModal" className="flex items-center text-sm font-medium cursor-pointer"
                     title={actualSupportsThinkingConfig ? "切换AI思考预算 (仅Gemini Flash/Pro模型)。优质模式可获得更高质量回复。" : "当前模型或API配置不支持思考预算。"}>
-                    <SlidersHorizontal size={20} className={`mr-2 ${actualSupportsThinkingConfig && isThinkingBudgetActive ? 'text-sky-600' : 'text-gray-400'}`} />
-                    <span className="select-none">AI思考预算 (Gemini):</span>
+                    <SlidersHorizontal size={20} className={cn("mr-2", actualSupportsThinkingConfig && isThinkingBudgetActive ? 'text-primary' : 'text-muted-foreground')} />
+                    <span>AI思考预算 (Gemini)</span>
                 </label>
-                <div className={toggleButtonContainerClass}>
-                     <button
-                        id="thinkingBudgetToggleModal"
-                        onClick={handleThinkingBudgetToggle}
-                        className={`${toggleButtonClass} ${isLoading || !actualSupportsThinkingConfig ? 'cursor-not-allowed opacity-70' : ''}`}
-                        disabled={isLoading || !actualSupportsThinkingConfig} role="switch" aria-checked={isThinkingBudgetActive && actualSupportsThinkingConfig}>
-                        <span className={`${toggleButtonSwitchClass} ${actualSupportsThinkingConfig ? (isThinkingBudgetActive ? 'bg-sky-500' : 'bg-gray-300') : 'bg-gray-200'}`}></span>
-                        <span className={`${toggleButtonKnobClass} ${actualSupportsThinkingConfig && isThinkingBudgetActive ? 'translate-x-4' : ''}`}></span>
-                    </button>
-                    <span className={toggleTextClass}>
-                        {actualSupportsThinkingConfig ? (isThinkingBudgetActive ? '优质' : '标准') : 'N/A'}
-                    </span>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="thinkingBudgetToggleModal"
+                    checked={isThinkingBudgetActive && actualSupportsThinkingConfig}
+                    onCheckedChange={handleThinkingBudgetToggle}
+                    disabled={isLoading || !actualSupportsThinkingConfig}
+                    aria-label="切换AI思考预算"
+                  />
+                  <span className="text-sm text-muted-foreground min-w-[3rem]">
+                    {actualSupportsThinkingConfig ? (isThinkingBudgetActive ? '优质' : '标准') : 'N/A'}
+                  </span>
                 </div>
               </div>
               {!actualSupportsThinkingConfig && (
-                <p className="text-xs text-gray-500 mt-1 pl-7">当前选定模型或API配置不支持思考预算功能。</p>
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-xs text-amber-700 flex items-center">
+                    <Info size={14} className="mr-1 flex-shrink-0" />
+                    当前选定模型或API配置不支持思考预算功能。
+                  </p>
+                </div>
               )}
             </div>
           </section>
 
           {/* AI Persona Settings Section */}
           <section aria-labelledby="persona-settings-heading">
-            <h3 id="persona-settings-heading" className={`${sectionHeadingClass} mb-1`}>AI 角色设定 (系统提示词)</h3>
+            <h3 id="persona-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">AI 角色设定 (系统提示词)</h3>
             {!supportsSystemInstruction && ( 
               <div className="mt-2 mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md text-sm text-yellow-700 flex items-start">
                 <Info size={18} className="mr-2 mt-0.5 shrink-0" />
@@ -428,68 +464,80 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
             
-            <div className="space-y-5 mt-4">
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                    <label htmlFor="cognitoPrompt" className="block text-sm font-medium text-gray-700">Cognito (逻辑AI) 提示词:</label>
-                    <button 
+            <div className="space-y-6 mt-4">
+              <div className="border border-border rounded-lg p-4 bg-gradient-to-r from-blue-50/50 to-blue-50/30">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 space-y-2 sm:space-y-0">
+                    <div className="flex items-center space-x-2">
+                      <Brain size={16} className="text-blue-600" />
+                      <label htmlFor="cognitoPrompt" className="text-sm font-medium">Cognito (逻辑AI) 提示词</label>
+                    </div>
+                    <Button 
+                        variant="ghost"
+                        size="sm"
                         onClick={onResetCognitoPrompt}
                         disabled={isLoading || !supportsSystemInstruction}
-                        className="text-xs text-sky-600 hover:text-sky-800 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center focus:outline-none focus:ring-1 focus:ring-sky-500 rounded px-1 py-0.5"
+                        className="h-8 px-3 text-xs self-end sm:self-auto"
                         title="重置为默认提示词"
                     >
-                        <RotateCcw size={14} className="mr-1" /> 重置
-                    </button>
+                        <RotateCcw size={12} className="mr-1" /> 重置
+                    </Button>
                 </div>
-                <textarea
+                <Textarea
                   id="cognitoPrompt"
                   value={cognitoSystemPrompt}
                   onChange={onCognitoPromptChange}
                   rows={5}
-                  className={`${inputBaseClass} resize-y min-h-[90px]`}
+                  className="resize-y min-h-[90px] border-blue-200 focus:border-blue-400"
                   disabled={isLoading || !supportsSystemInstruction}
                   aria-label="Cognito系统提示词"
+                  placeholder="设置Cognito AI的系统提示词..."
                 />
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                    <label htmlFor="musePrompt" className="block text-sm font-medium text-gray-700">Muse (创意AI) 提示词:</label>
-                     <button 
+              <div className="border border-border rounded-lg p-4 bg-gradient-to-r from-purple-50/50 to-purple-50/30">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 space-y-2 sm:space-y-0">
+                    <div className="flex items-center space-x-2">
+                      <Sparkles size={16} className="text-purple-600" />
+                      <label htmlFor="musePrompt" className="text-sm font-medium">Muse (创意AI) 提示词</label>
+                    </div>
+                     <Button 
+                        variant="ghost"
+                        size="sm"
                         onClick={onResetMusePrompt}
                         disabled={isLoading || !supportsSystemInstruction}
-                        className="text-xs text-sky-600 hover:text-sky-800 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center focus:outline-none focus:ring-1 focus:ring-sky-500 rounded px-1 py-0.5"
+                        className="h-8 px-3 text-xs self-end sm:self-auto"
                         title="重置为默认提示词"
                     >
-                        <RotateCcw size={14} className="mr-1" /> 重置
-                    </button>
+                        <RotateCcw size={12} className="mr-1" /> 重置
+                    </Button>
                 </div>
-                <textarea
+                <Textarea
                   id="musePrompt"
                   value={museSystemPrompt}
                   onChange={onMusePromptChange}
                   rows={5}
-                  className={`${inputBaseClass} resize-y min-h-[90px]`}
+                  className="resize-y min-h-[90px] border-purple-200 focus:border-purple-400"
                   disabled={isLoading || !supportsSystemInstruction}
                   aria-label="Muse系统提示词"
+                  placeholder="设置Muse AI的系统提示词..."
                 />
               </div>
             </div>
           </section>
         </div>
 
-        <footer className="p-4 border-t border-gray-300 bg-gray-50 rounded-b-lg sticky bottom-0 z-10">
-          <button
+        <div className="flex justify-end pt-4 border-t">
+          <Button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:bg-sky-300"
             disabled={isLoading}
+            className="px-6"
             aria-label="完成并关闭设置"
           >
             完成
-          </button>
-        </footer>
-      </div>
-    </div>
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
