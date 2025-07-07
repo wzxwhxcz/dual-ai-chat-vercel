@@ -137,19 +137,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] flex flex-col">
+      <DialogContent className="!max-w-4xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-primary">应用程序设置</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl font-semibold text-primary">应用程序设置</DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
             配置您的 AI 聊天应用程序设置
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2">
+        <div className="space-y-4 sm:space-y-6 overflow-y-auto max-h-[70vh] sm:max-h-[60vh] pr-2">
           {/* API Configuration Section */}
           <section aria-labelledby="api-config-settings-heading">
-            <h3 id="api-config-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">API 配置</h3>
-            <div className="space-y-4">
+            <h3 id="api-config-settings-heading" className="text-base sm:text-lg font-medium text-foreground mb-3 border-b pb-2">API 配置</h3>
+            <div className="space-y-3 sm:space-y-4">
               {/* Gemini Custom API */}
               <div className={cn("p-4 border rounded-lg", useCustomApiConfig ? 'border-primary bg-primary/5' : 'border-border bg-muted/50')}>
                 <div className="flex items-center justify-between mb-3">
@@ -303,7 +303,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Font Size Settings Section */}
           <section aria-labelledby="font-size-settings-heading">
-            <h3 id="font-size-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">文字大小</h3>
+            <h3 id="font-size-settings-heading" className="text-base sm:text-lg font-medium text-foreground mb-3 border-b pb-2">文字大小</h3>
             <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                 <div className="flex items-center space-x-2">
                   <CaseSensitive size={20} className="text-primary flex-shrink-0" />
@@ -330,7 +330,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Discussion Settings Section */}
           <section aria-labelledby="discussion-settings-heading">
-            <h3 id="discussion-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">讨论设置</h3>
+            <h3 id="discussion-settings-heading" className="text-base sm:text-lg font-medium text-foreground mb-3 border-b pb-2">讨论设置</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label htmlFor="discussionModeToggleModal" className="flex items-center text-sm font-medium cursor-pointer"
@@ -374,7 +374,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Model Performance Section */}
           <section aria-labelledby="performance-settings-heading">
-            <h3 id="performance-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">模型性能</h3>
+            <h3 id="performance-settings-heading" className="text-base sm:text-lg font-medium text-foreground mb-3 border-b pb-2">模型性能</h3>
             <div className="space-y-6">
               {/* Temperature Control */}
               <div>
@@ -386,9 +386,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span className="text-xs text-muted-foreground w-8">0.0</span>
                   <Slider
                     id="temperatureSlider"
-                    min={[0]}
-                    max={[2]}
-                    step={[0.1]}
+                    min={0}
+                    max={2}
+                    step={0.1}
                     value={[temperature]}
                     onValueChange={(value) => !isLoading && onTemperatureChange(value[0])}
                     disabled={isLoading}
@@ -456,7 +456,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* AI Persona Settings Section */}
           <section aria-labelledby="persona-settings-heading">
-            <h3 id="persona-settings-heading" className="text-lg font-medium text-foreground mb-3 border-b pb-2">AI 角色设定 (系统提示词)</h3>
+            <h3 id="persona-settings-heading" className="text-base sm:text-lg font-medium text-foreground mb-3 border-b pb-2">AI 角色设定 (系统提示词)</h3>
             {!supportsSystemInstruction && ( 
               <div className="mt-2 mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md text-sm text-yellow-700 flex items-start">
                 <Info size={18} className="mr-2 mt-0.5 shrink-0" />

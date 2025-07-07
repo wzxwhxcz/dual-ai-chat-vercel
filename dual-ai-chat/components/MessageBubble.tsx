@@ -45,7 +45,7 @@ const getSenderNameStyle = (sender: MessageSender): string => {
 }
 
 const getBubbleStyle = (sender: MessageSender, purpose: MessagePurpose, messageText: string): string => {
-  let baseStyle = "mb-4 p-4 rounded-lg shadow-md max-w-xl break-words relative border "; 
+  let baseStyle = "mb-4 p-3 sm:p-4 rounded-lg shadow-md max-w-xs sm:max-w-md lg:max-w-xl break-words relative border "; 
   if (purpose === MessagePurpose.SystemNotification) {
     if (
       messageText.toLowerCase().includes("error") ||

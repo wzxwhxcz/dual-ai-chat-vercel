@@ -75,4 +75,38 @@
     min-height: 100vh;
     min-width: 100vw;
   }
+
+  /* 移动端优化 */
+  @media (max-width: 1023px) {
+    /* 优化移动端滚动 */
+    .overscroll-contain {
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* 优化移动端触摸 */
+    button, input, textarea, select {
+      touch-action: manipulation;
+    }
+
+    /* 防止移动端缩放 */
+    input, textarea {
+      font-size: 16px;
+    }
+  }
+
+  /* 聊天消息的 markdown 样式 */
+  .chat-markdown-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .chat-markdown-content pre {
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  .chat-markdown-content code {
+    word-break: break-all;
+  }
 }

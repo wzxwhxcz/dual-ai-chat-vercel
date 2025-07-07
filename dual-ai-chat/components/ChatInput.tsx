@@ -145,7 +145,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
           <div className="text-xs text-muted-foreground mt-1 truncate">{selectedImage.name} ({(selectedImage.size / 1024).toFixed(1)} KB)</div>
         </div>
       )}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-end space-x-2">
         <Textarea
           ref={textareaRef}
           value={inputValue}
@@ -157,7 +157,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
           onDragLeave={handleDragLeave}
           placeholder="询问任何问题"
           className={cn(
-            "flex-grow resize-none min-h-[48px] max-h-[150px]",
+            "flex-grow resize-none min-h-[48px] max-h-[120px] sm:max-h-[150px] text-base",
             isDraggingOver && "ring-2 ring-primary"
           )}
           rows={1}
@@ -185,9 +185,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
           disabled={isDisabledInput}
           aria-label="添加图片附件"
           title="添加图片"
-          className="h-[48px] w-[48px]"
+          className="h-[48px] w-[48px] shrink-0"
         >
-          <Paperclip size={20} />
+          <Paperclip size={18} className="sm:w-5 sm:h-5" />
         </Button>
         <Button
           type={isLoading ? "button" : "submit"}
@@ -197,9 +197,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isApiKe
           disabled={!isLoading && (isApiKeyMissing || (!inputValue.trim() && !selectedImage))}
           aria-label={isLoading ? "停止生成" : "发送消息"}
           title={isLoading ? "停止生成" : "发送消息"}
-          className="h-[48px] w-[48px]"
+          className="h-[48px] w-[48px] shrink-0"
         >
-          {isLoading ? <StopCircle size={20} /> : <Send size={20} />}
+          {isLoading ? <StopCircle size={18} className="sm:w-5 sm:h-5" /> : <Send size={18} className="sm:w-5 sm:h-5" />}
         </Button>
       </div>
     </form>

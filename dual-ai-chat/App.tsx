@@ -36,7 +36,7 @@ import {
   CURRENT_SESSION_ID_STORAGE_KEY,
   CUSTOM_AI_ROLES_STORAGE_KEY,
 } from './constants';
-import { BotMessageSquare, AlertTriangle, RefreshCcw as RefreshCwIcon, Settings2, Brain, Sparkles, Database, History, Users } from 'lucide-react';
+import { BotMessageSquare, AlertTriangle, RefreshCcw as RefreshCwIcon, Settings2, Brain, Sparkles, History, Users, FileText } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
 import { cn } from './lib/utils'; 
@@ -115,6 +115,7 @@ const App: React.FC = () => {
   const [isRoleManagerOpen, setIsRoleManagerOpen] = useState<boolean>(false);
   const [currentCognitoRoleName, setCurrentCognitoRoleName] = useState<string>('cognito');
   const [currentMuseRoleName, setCurrentMuseRoleName] = useState<string>('muse');
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
 
   const {
@@ -426,6 +427,19 @@ const App: React.FC = () => {
     }
   }, [messages, isAutoScrollEnabled, scrollToBottom]);
 
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+
   const handleChatScroll = useCallback(() => {
     const chatContainer = chatContainerRef.current;
     if (chatContainer) {
@@ -477,7 +491,7 @@ const App: React.FC = () => {
 
   // 会话管理函数
   const handleCreateSession = useCallback((title?: string) => {
-    const sessionId = createNewSession(title);
+    createNewSession(title);
     setMessages([]);
     clearNotepadContent();
     setIsNotepadFullscreen(false);
@@ -532,13 +546,13 @@ const App: React.FC = () => {
 
   return (
     <div className={cn("flex flex-col h-screen bg-background shadow-2xl overflow-hidden border-x border-border", isNotepadFullscreen ? 'fixed inset-0 z-40' : 'relative')}>
-      <header className={cn("p-3 md:p-4 bg-background border-b border-border flex items-center justify-between shrink-0 space-x-2 md:space-x-3 flex-wrap", isNotepadFullscreen ? 'relative z-0' : 'relative z-10')}>
+      <header className={cn("p-3 md:p-4 bg-background border-b border-border flex flex-col lg:flex-row lg:items-center justify-between shrink-0 space-y-3 lg:space-y-0 lg:space-x-3", isNotepadFullscreen ? 'relative z-0' : 'relative z-10')}>
         <div className="flex items-center shrink-0">
           <BotMessageSquare size={28} className="mr-2 md:mr-3 text-primary" />
-          <h1 className="text-xl md:text-2xl font-semibold text-primary">Dual AI Chat</h1>
+          <h1 className="text-lg md:text-xl lg:text-2xl font-semibold text-primary">Dual AI Chat</h1>
         </div>
 
-        <div className="flex items-center space-x-1 md:space-x-2 flex-wrap justify-end gap-y-2">
+        <div className="flex items-center space-x-1 md:space-x-2 flex-wrap justify-center lg:justify-end gap-y-2">
           {useOpenAiApiConfig ? (
             <>
               <div className="flex items-center p-2 bg-secondary rounded-md border" title={`OpenAI Cognito: ${openAiCognitoModelId || '未指定'}`}>
@@ -564,7 +578,7 @@ const App: React.FC = () => {
                   onValueChange={setSelectedCognitoModelApiName}
                   disabled={isLoading || useOpenAiApiConfig}
                 >
-                  <SelectTrigger className="w-40 md:w-44">
+                  <SelectTrigger className="w-32 sm:w-40 md:w-44">
                     <SelectValue aria-label="选择Cognito的AI模型" />
                   </SelectTrigger>
                   <SelectContent>
@@ -586,7 +600,7 @@ const App: React.FC = () => {
                   onValueChange={setSelectedMuseModelApiName}
                   disabled={isLoading || useOpenAiApiConfig}
                 >
-                  <SelectTrigger className="w-40 md:w-44">
+                  <SelectTrigger className="w-32 sm:w-40 md:w-44">
                     <SelectValue aria-label="选择Muse的AI模型" />
                   </SelectTrigger>
                   <SelectContent>
@@ -601,6 +615,18 @@ const App: React.FC = () => {
             </>
           )}
           <Separator />
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleNotepadFullscreen}
+              aria-label="记事本" 
+              title="打开记事本" 
+              disabled={isLoading && !cancelRequestRef.current && !failedStepInfo}
+            >
+              <FileText size={20} />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -648,14 +674,15 @@ const App: React.FC = () => {
         {!isNotepadFullscreen && (
           <div
             id="chat-panel-wrapper"
-            className="flex flex-col h-full overflow-hidden"
-            style={{ width: `${chatPanelWidthPercent}%` }}
+            className="flex flex-col h-full overflow-hidden w-full lg:w-auto"
+            style={{ width: isMobile ? '100%' : `${chatPanelWidthPercent}%` }}
           >
             <div className="flex flex-col flex-grow h-full"> 
               <div 
                 ref={chatContainerRef} 
-                className="flex-grow p-4 space-y-4 overflow-y-auto bg-muted/30 scroll-smooth"
+                className="flex-grow p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto bg-muted/30 scroll-smooth overscroll-contain"
                 onScroll={handleChatScroll}
+                style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 {messages.map((msg) => (
                   <MessageBubble
@@ -708,7 +735,7 @@ const App: React.FC = () => {
         {!isNotepadFullscreen && (
           <div
             id="panel-resizer"
-            className="w-1.5 h-full bg-border hover:bg-primary cursor-col-resize select-none shrink-0 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-1.5 h-full bg-border hover:bg-primary cursor-col-resize select-none shrink-0 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-1 focus:ring-ring hidden lg:block"
             onMouseDown={handleMouseDownOnResizer}
             onKeyDown={handleResizerKeyDown}
             role="separator"
@@ -725,12 +752,12 @@ const App: React.FC = () => {
         
         <div
           id="notepad-panel-wrapper"
-          className={cn("h-full bg-background flex flex-col", 
+          className={cn("h-full bg-background flex-col", 
             isNotepadFullscreen 
-            ? 'fixed inset-0 z-50 w-screen' 
-            : 'overflow-hidden'
+            ? 'fixed inset-0 z-50 w-screen flex' 
+            : 'overflow-hidden hidden lg:flex'
           )}
-          style={!isNotepadFullscreen ? { width: `${100 - chatPanelWidthPercent}%` } : {}}
+          style={!isNotepadFullscreen && !isMobile ? { width: `${100 - chatPanelWidthPercent}%` } : {}}
         >
           <Notepad 
             content={notepadContent} 
