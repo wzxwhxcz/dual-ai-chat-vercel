@@ -742,7 +742,9 @@ export const useChatLogic = ({
   const stopGenerating = useCallback(() => {
     cancelRequestRef.current = true;
     setIsInternalDiscussionActive(false);
-  }, [setIsInternalDiscussionActive]);
+    setIsLoading(false);
+    stopProcessingTimer();
+  }, [setIsInternalDiscussionActive, setIsLoading, stopProcessingTimer]);
 
   return {
     isLoading,
