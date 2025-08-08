@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug App Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+      "react/": "https://esm.sh/react@18.2.0/",
+      "lucide-react": "https://esm.sh/lucide-react@^0.511.0"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React, { useState } from 'react';
+    import ReactDOM from 'react-dom/client';
+    import { BotMessageSquare } from 'lucide-react';
+
+    console.log('Script loaded');
+
+    // 简化的 App 组件
+    const SimpleApp = () => {
+      const [messages, setMessages] = useState([]);
+      
+      console.log('SimpleApp rendered');
+      
+      return React.createElement('div', {
+        className: 'flex flex-col h-screen bg-white'
+      }, [
+        React.createElement('header', {
+          key: 'header',
+          className: 'p-4 bg-gray-50 border-b border-gray-300 flex items-center'
+        }, [
+          React.createElement(BotMessageSquare, {
+            key: 'icon',
+            size: 28,
+            className: 'mr-3 text-sky-600'
+          }),
+          React.createElement('h1', {
+            key: 'title',
+            className: 'text-2xl font-semibold text-sky-600'
+          }, 'Dual AI Chat - Debug')
+        ]),
+        React.createElement('div', {
+          key: 'content',
+          className: 'flex-grow p-4 bg-gray-100'
+        }, [
+          React.createElement('p', {
+            key: 'text',
+            className: 'text-gray-800'
+          }, 'If you see this, the basic app structure is working!')
+        ])
+      ]);
+    };
+
+    try {
+      console.log('Getting root element...');
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element");
+      }
+
+      console.log('Creating React root...');
+      const root = ReactDOM.createRoot(rootElement);
+
+      console.log('Rendering app...');
+      root.render(React.createElement(SimpleApp));
+      console.log('App rendered');
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      document.getElementById('root').innerHTML = '<div class="p-4 bg-red-100 text-red-800">Error: ' + error.message + '</div>';
+    }
+  </script>
+</body>
+</html>

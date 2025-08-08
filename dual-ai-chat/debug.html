@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+      "react/": "https://esm.sh/react@18.2.0/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'react';
+    import ReactDOM from 'react-dom/client';
+
+    console.log('Script loaded');
+    console.log('React:', React);
+    console.log('ReactDOM:', ReactDOM);
+
+    const TestComponent = () => {
+      console.log('TestComponent rendered');
+      return React.createElement('div', {
+        className: 'p-4 bg-blue-100',
+        children: [
+          React.createElement('h1', { 
+            key: 'title',
+            className: 'text-2xl font-bold text-blue-800' 
+          }, 'Debug Test'),
+          React.createElement('p', { 
+            key: 'text',
+            className: 'text-blue-600' 
+          }, 'If you see this, React is working!')
+        ]
+      });
+    };
+
+    try {
+      console.log('Getting root element...');
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element");
+      }
+      console.log('Root element found:', rootElement);
+
+      console.log('Creating React root...');
+      const root = ReactDOM.createRoot(rootElement);
+      console.log('React root created:', root);
+
+      console.log('Rendering component...');
+      root.render(React.createElement(TestComponent));
+      console.log('Component rendered');
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      document.getElementById('root').innerHTML = '<div class="p-4 bg-red-100 text-red-800">Error: ' + error.message + '</div>';
+    }
+  </script>
+</body>
+</html>

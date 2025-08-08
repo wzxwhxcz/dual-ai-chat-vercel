@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Full App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+      "react/": "https://esm.sh/react@18.2.0/",
+      "@google/genai": "https://esm.sh/@google/genai@^1.0.1",
+      "lucide-react": "https://esm.sh/lucide-react@^0.511.0",
+      "marked": "https://esm.sh/marked@^13.0.2",
+      "dompurify": "https://esm.sh/dompurify@^3.1.6"
+    }
+  }
+  </script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div id="root"></div>
+  
+  <script type="module">
+    import React, { useState, useEffect } from 'react';
+    import ReactDOM from 'react-dom/client';
+    
+    // 导入类型和常量
+    import { MessageSender, MessagePurpose, DiscussionMode } from './types.js';
+    import { 
+      MODELS,
+      DEFAULT_COGNITO_MODEL_API_NAME, 
+      DEFAULT_MUSE_MODEL_API_NAME,
+      COGNITO_SYSTEM_PROMPT_HEADER,
+      MUSE_SYSTEM_PROMPT_HEADER
+    } from './constants.js';
+    import { BotMessageSquare } from 'lucide-react';
+
+    console.log('Types imported:', { MessageSender, MessagePurpose, DiscussionMode });
+    console.log('Constants imported:', { MODELS, DEFAULT_COGNITO_MODEL_API_NAME });
+
+    const DebugApp = () => {
+      const [debugStep, setDebugStep] = useState(1);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        try {
+          console.log('Debug step:', debugStep);
+          
+          if (debugStep === 1) {
+            console.log('Step 1: Basic React rendering - OK');
+            setTimeout(() => setDebugStep(2), 1000);
+          } else if (debugStep === 2) {
+            console.log('Step 2: Types and constants - OK');
+            setTimeout(() => setDebugStep(3), 1000);
+          } else if (debugStep === 3) {
+            console.log('Step 3: Trying to import hooks...');
+            import('./hooks/useChatSessions.js').then(() => {
+              console.log('useChatSessions imported successfully');
+              setTimeout(() => setDebugStep(4), 1000);
+            }).catch(err => {
+              console.error('Error importing useChatSessions:', err);
+              setError('useChatSessions: ' + err.message);
+            });
+          } else if (debugStep === 4) {
+            console.log('Step 4: Trying to import useCustomRoles...');
+            import('./hooks/useCustomRoles.js').then(() => {
+              console.log('useCustomRoles imported successfully');
+              setTimeout(() => setDebugStep(5), 1000);
+            }).catch(err => {
+              console.error('Error importing useCustomRoles:', err);
+              setError('useCustomRoles: ' + err.message);
+            });
+          } else if (debugStep === 5) {
+            console.log('Step 5: All hooks imported - trying full App...');
+            import('./App.js').then(() => {
+              console.log('App imported successfully!');
+              setDebugStep(6);
+            }).catch(err => {
+              console.error('Error importing App:', err);
+              setError('App: ' + err.message);
+            });
+          }
+        } catch (err) {
+          console.error('Error in debug step:', err);
+          setError('Step ' + debugStep + ': ' + err.message);
+        }
+      }, [debugStep]);
+
+      if (error) {
+        return React.createElement('div', {
+          className: 'p-4 bg-red-100 border border-red-300 rounded'
+        }, [
+          React.createElement('h2', {
+            key: 'title',
+            className: 'text-xl font-bold text-red-800 mb-2'
+          }, 'Error Found!'),
+          React.createElement('p', {
+            key: 'error',
+            className: 'text-red-700'
+          }, error)
+        ]);
+      }
+
+      return React.createElement('div', {
+        className: 'p-4 bg-blue-100 border border-blue-300 rounded'
+      }, [
+        React.createElement('h2', {
+          key: 'title',
+          className: 'text-xl font-bold text-blue-800 mb-2'
+        }, 'Debug Progress'),
+        React.createElement('p', {
+          key: 'step',
+          className: 'text-blue-700'
+        }, `Step ${debugStep}: ${getStepDescription(debugStep)}`),
+        debugStep === 6 && React.createElement('p', {
+          key: 'success',
+          className: 'text-green-700 font-bold mt-2'
+        }, 'All components loaded successfully! The issue might be in the App component logic.')
+      ]);
+    };
+
+    function getStepDescription(step) {
+      switch(step) {
+        case 1: return 'Testing basic React rendering...';
+        case 2: return 'Testing types and constants import...';
+        case 3: return 'Testing useChatSessions hook import...';
+        case 4: return 'Testing useCustomRoles hook import...';
+        case 5: return 'Testing App component import...';
+        case 6: return 'All imports successful!';
+        default: return 'Unknown step';
+      }
+    }
+
+    try {
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element");
+      }
+
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(React.createElement(DebugApp));
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      document.getElementById('root').innerHTML = '<div class="p-4 bg-red-100 text-red-800">Error: ' + error.message + '</div>';
+    }
+  </script>
+</body>
+</html>
