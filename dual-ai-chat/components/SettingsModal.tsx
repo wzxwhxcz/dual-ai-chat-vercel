@@ -157,15 +157,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Settings size={20} className="mr-2 text-primary" />
                     <span>使用自定义 Gemini API 配置</span>
                   </label>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-5">
                     <Switch
                       id="useCustomGeminiApiToggle"
                       checked={useCustomApiConfig}
                       onCheckedChange={handleUseCustomGeminiApiConfigToggle}
                       disabled={isLoading}
                       aria-label="切换自定义 Gemini API 配置"
+                      className="shrink-0"
                     />
-                    <span className="text-sm text-muted-foreground min-w-[3rem]">
+                    <span className="text-sm text-muted-foreground min-w-[4rem] shrink-0">
                       {useCustomApiConfig ? '开启' : '关闭'}
                     </span>
                   </div>
@@ -214,15 +215,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Database size={20} className="mr-2 text-secondary-foreground" />
                     <span>使用 OpenAI 兼容 API 配置</span>
                   </label>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-5">
                     <Switch
                       id="useOpenAiApiToggle"
                       checked={useOpenAiApiConfig}
                       onCheckedChange={handleUseOpenAiApiConfigToggle}
                       disabled={isLoading}
                       aria-label="切换 OpenAI API 配置"
+                      className="shrink-0"
                     />
-                    <span className="text-sm text-muted-foreground min-w-[3rem]">
+                    <span className="text-sm text-muted-foreground min-w-[4rem] shrink-0">
                       {useOpenAiApiConfig ? '开启' : '关闭'}
                     </span>
                   </div>
