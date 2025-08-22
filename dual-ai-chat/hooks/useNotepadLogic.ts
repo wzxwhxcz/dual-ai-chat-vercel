@@ -4,14 +4,14 @@ import { MessageSender, MessagePurpose } from '../types';
 import { applyNotepadModifications, ParsedAIResponse } from '../utils/appUtils';
 import { useNotepadHistory } from './useNotepadHistory';
 
-export const useNotepadLogic = (initialContent: string) => {
+export const useNotepadLogic = (initialContent: string, sessionId?: string) => {
   const [notepadContent, setNotepadContent] = useState<string>(initialContent);
   const [lastNotepadUpdateBy, setLastNotepadUpdateBy] = useState<MessageSender | null>(null);
   
   const [notepadHistory, setNotepadHistory] = useState<string[]>([initialContent]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number>(0);
   
-  // 集成版本历史
+  // 集成版本历史，传入sessionId以实现会话隔离
   const {
     addVersion,
     versions,
@@ -19,7 +19,7 @@ export const useNotepadLogic = (initialContent: string) => {
     switchToVersion,
     exportHistory,
     clearHistory: clearVersionHistory
-  } = useNotepadHistory();
+  } = useNotepadHistory(sessionId);
 
   const _addHistoryEntry = useCallback((newContent: string, updatedBy: MessageSender | null, description?: string) => {
     const newHistorySlice = notepadHistory.slice(0, currentHistoryIndex + 1);

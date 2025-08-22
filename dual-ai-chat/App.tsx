@@ -188,7 +188,7 @@ const App: React.FC = () => {
     redoNotepad,
     canUndo,
     canRedo,
-  } = useNotepadLogic(INITIAL_NOTEPAD_CONTENT);
+  } = useNotepadLogic(INITIAL_NOTEPAD_CONTENT, currentSessionId || undefined);
 
   const addMessage = useCallback((
     text: string,
@@ -241,10 +241,10 @@ const App: React.FC = () => {
   const {
     isLoading,
     failedStepInfo,
-    startChatProcessing,
+    startChatProcessing: originalStartChatProcessing,
     retryFailedStep,
-    stopGenerating: stopChatLogicGeneration, 
-    cancelRequestRef, 
+    stopGenerating: stopChatLogicGeneration,
+    cancelRequestRef,
     currentDiscussionTurn,
     isInternalDiscussionActive,
     lastCompletedTurnCount, // Added
@@ -350,6 +350,15 @@ const App: React.FC = () => {
     initializeChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useCustomApiConfig, useOpenAiApiConfig]); // Re-initialize if API config mode changes
+
+  // 确保应用启动时总是有一个活跃的会话
+  useEffect(() => {
+    if (sessions.length === 0 || !currentSessionId) {
+      // 如果没有会话或没有当前会话，创建一个默认会话
+      const defaultTitle = '默认会话';
+      createNewSession(defaultTitle);
+    }
+  }, [sessions.length, currentSessionId, createNewSession]);
 
    useEffect(() => {
      const welcomeMessage = messages.find(msg => msg.sender === MessageSender.System && msg.text.startsWith("欢迎使用Dual AI Chat！"));
@@ -511,11 +520,12 @@ const App: React.FC = () => {
     if (session) {
       switchToSession(sessionId);
       setMessages(session.messages);
-      // 这里需要更新notepad内容，但需要修改useNotepadLogic来支持设置内容
+      // 设置记事本内容为会话保存的内容
+      setNotepadContentManual(session.notepadContent, null);
       setIsNotepadFullscreen(false);
       setIsAutoScrollEnabled(true);
     }
-  }, [sessions, switchToSession]);
+  }, [sessions, switchToSession, setNotepadContentManual]);
 
   const handleDeleteSession = useCallback((sessionId: string) => {
     deleteSession(sessionId);
@@ -542,6 +552,26 @@ const App: React.FC = () => {
       }
     }
   }, [getRoleByName]);
+
+  // 包装startChatProcessing以确保总是有会话
+  const startChatProcessing = useCallback(async (userInput: string, imageFile?: File | null) => {
+    // 如果没有当前会话，自动创建一个新会话
+    if (!currentSessionId) {
+      // 创建新会话时使用更简洁的标题
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const newSessionId = createNewSession(`新会话 ${timeStr}`);
+      
+      // 不清空当前的messages和notepad，让用户的聊天内容自动保存到新会话中
+      console.log('自动创建新会话:', newSessionId);
+    }
+    
+    // 调用原始的startChatProcessing函数
+    return originalStartChatProcessing(userInput, imageFile);
+  }, [currentSessionId, createNewSession, originalStartChatProcessing]);
 
   // 保存会话状态
   useEffect(() => {

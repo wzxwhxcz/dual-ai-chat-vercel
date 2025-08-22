@@ -65,6 +65,7 @@ export const useChatSessions = () => {
       title: title || `会话 ${new Date().toLocaleString()}`,
       messages: [],
       notepadContent: '这是共享记事本。\nCognito 和 Muse 可以在讨论过程中共同编辑和使用它。',
+      notepadHistory: { versions: [], currentVersionIndex: -1 }, // 初始化记事本历史
       createdAt: new Date(),
       updatedAt: new Date()
     };

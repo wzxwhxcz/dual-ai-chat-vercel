@@ -1,29 +1,19 @@
-import { useState, useCallback } from 'react';
-import { MessageSender } from '../types';
+import { useState, useCallback, useEffect } from 'react';
+import { MessageSender, NotepadVersion, NotepadHistoryState } from '../types';
 
-export interface NotepadVersion {
-  id: string;
-  content: string;
-  timestamp: Date;
-  author: MessageSender | null;
-  description?: string;
-  wordCount: number;
-  lineCount: number;
-}
-
-export interface NotepadHistoryState {
-  versions: NotepadVersion[];
-  currentVersionIndex: number;
-}
-
-const NOTEPAD_HISTORY_STORAGE_KEY = 'dualAiChatNotepadHistory';
+const NOTEPAD_HISTORY_STORAGE_KEY_PREFIX = 'dualAiChatNotepadHistory_';
 const MAX_HISTORY_VERSIONS = 50; // 最多保存50个版本
 
-export const useNotepadHistory = () => {
+export const useNotepadHistory = (sessionId?: string) => {
   // 从localStorage加载历史
-  const loadHistory = useCallback((): NotepadHistoryState => {
+  const loadHistory = useCallback((sessionId?: string): NotepadHistoryState => {
+    if (!sessionId) {
+      return { versions: [], currentVersionIndex: -1 };
+    }
+    
     try {
-      const stored = localStorage.getItem(NOTEPAD_HISTORY_STORAGE_KEY);
+      const storageKey = `${NOTEPAD_HISTORY_STORAGE_KEY_PREFIX}${sessionId}`;
+      const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         // 转换日期字符串为Date对象
@@ -39,12 +29,20 @@ export const useNotepadHistory = () => {
     return { versions: [], currentVersionIndex: -1 };
   }, []);
 
-  const [historyState, setHistoryState] = useState<NotepadHistoryState>(loadHistory);
+  const [historyState, setHistoryState] = useState<NotepadHistoryState>(() => loadHistory(sessionId));
+
+  // 当sessionId变化时，重新加载历史
+  useEffect(() => {
+    setHistoryState(loadHistory(sessionId));
+  }, [sessionId, loadHistory]);
 
   // 保存历史到localStorage
-  const saveHistory = useCallback((state: NotepadHistoryState) => {
+  const saveHistory = useCallback((state: NotepadHistoryState, sessionId?: string) => {
+    if (!sessionId) return;
+    
     try {
-      localStorage.setItem(NOTEPAD_HISTORY_STORAGE_KEY, JSON.stringify(state));
+      const storageKey = `${NOTEPAD_HISTORY_STORAGE_KEY_PREFIX}${sessionId}`;
+      localStorage.setItem(storageKey, JSON.stringify(state));
     } catch (error) {
       console.error('保存记事本历史失败:', error);
     }
@@ -56,6 +54,8 @@ export const useNotepadHistory = () => {
     author: MessageSender | null, 
     description?: string
   ): string => {
+    if (!sessionId) return '';
+    
     const versionId = `v-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const newVersion: NotepadVersion = {
@@ -87,12 +87,12 @@ export const useNotepadHistory = () => {
         currentVersionIndex: versions.length - 1
       };
 
-      saveHistory(newState);
+      saveHistory(newState, sessionId);
       return newState;
     });
 
     return versionId;
-  }, [saveHistory]);
+  }, [saveHistory, sessionId]);
 
   // 切换到指定版本
   const switchToVersion = useCallback((versionId: string): NotepadVersion | null => {
@@ -101,12 +101,12 @@ export const useNotepadHistory = () => {
 
     setHistoryState(prev => {
       const newState = { ...prev, currentVersionIndex: versionIndex };
-      saveHistory(newState);
+      saveHistory(newState, sessionId);
       return newState;
     });
 
     return historyState.versions[versionIndex];
-  }, [historyState.versions, saveHistory]);
+  }, [historyState.versions, saveHistory, sessionId]);
 
   // 获取当前版本
   const getCurrentVersion = useCallback((): NotepadVersion | null => {
@@ -153,15 +153,16 @@ export const useNotepadHistory = () => {
       currentVersionIndex: -1
     };
     setHistoryState(newState);
-    saveHistory(newState);
-  }, [saveHistory]);
+    saveHistory(newState, sessionId);
+  }, [saveHistory, sessionId]);
 
   // 导出历史
   const exportHistory = useCallback(() => {
     const exportData = {
       exportDate: new Date().toISOString(),
       versions: historyState.versions,
-      totalVersions: historyState.versions.length
+      totalVersions: historyState.versions.length,
+      sessionId: sessionId
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
@@ -170,12 +171,12 @@ export const useNotepadHistory = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `notepad-history-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `notepad-history-${sessionId || 'unknown'}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [historyState.versions]);
+  }, [historyState.versions, sessionId]);
 
   return {
     versions: historyState.versions,

@@ -65,12 +65,29 @@ export enum DiscussionMode {
   AiDriven = 'ai-driven',
 }
 
+// 记事本版本历史
+export interface NotepadVersion {
+  id: string;
+  content: string;
+  timestamp: Date;
+  author: MessageSender | null;
+  description?: string;
+  wordCount: number;
+  lineCount: number;
+}
+
+export interface NotepadHistoryState {
+  versions: NotepadVersion[];
+  currentVersionIndex: number;
+}
+
 // 对话历史管理
 export interface ChatSession {
   id: string;
   title: string;
   messages: ChatMessage[];
   notepadContent: string;
+  notepadHistory?: NotepadHistoryState; // 每个会话独立的记事本历史
   createdAt: Date;
   updatedAt: Date;
 }
