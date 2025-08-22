@@ -158,7 +158,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Settings size={20} className="mr-2 text-primary" />
                     <span>使用自定义 Gemini API 配置</span>
                   </label>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <Switch
                       id="useCustomGeminiApiToggle"
                       checked={useCustomApiConfig}
@@ -215,7 +215,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Database size={20} className="mr-2 text-secondary-foreground" />
                     <span>使用 OpenAI 兼容 API 配置</span>
                   </label>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <Switch
                       id="useOpenAiApiToggle"
                       checked={useOpenAiApiConfig}
