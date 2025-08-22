@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { DiscussionMode } from '../types';
-import { MIN_MANUAL_FIXED_TURNS } from '../constants'; 
-import { X, Bot, MessagesSquare, SlidersHorizontal, Info, RotateCcw, CaseSensitive, KeyRound, Globe, Settings, Database, Brain, Sparkles } from 'lucide-react';
+import { Bot, MessagesSquare, SlidersHorizontal, Info, RotateCcw, CaseSensitive, KeyRound, Globe, Settings, Database, Brain, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
