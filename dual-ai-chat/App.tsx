@@ -351,14 +351,6 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useCustomApiConfig, useOpenAiApiConfig]); // Re-initialize if API config mode changes
 
-  // 确保应用启动时总是有一个活跃的会话
-  useEffect(() => {
-    if (sessions.length === 0 || !currentSessionId) {
-      // 如果没有会话或没有当前会话，创建一个默认会话
-      const defaultTitle = '默认会话';
-      createNewSession(defaultTitle);
-    }
-  }, [sessions.length, currentSessionId, createNewSession]);
 
    useEffect(() => {
      const welcomeMessage = messages.find(msg => msg.sender === MessageSender.System && msg.text.startsWith("欢迎使用Dual AI Chat！"));
