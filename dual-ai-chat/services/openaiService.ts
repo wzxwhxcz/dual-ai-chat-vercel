@@ -1,3 +1,6 @@
+import { ChatMessage } from '../types';
+import { convertToOpenAIMessages, truncateMessageHistory } from '../utils/messageConverter';
+
 interface OpenAiResponsePayload {
   text: string;
   durationMs: number;
@@ -39,30 +42,50 @@ export const generateOpenAiResponse = async (
   baseUrl: string,
   systemInstruction?: string,
   imagePart?: { mimeType: string; data: string },
-  temperature?: number
+  temperature?: number,
+  messageHistory?: ChatMessage[]
 ): Promise<OpenAiResponsePayload> => {
   const startTime = performance.now();
-  const messages: OpenAiChatMessage[] = [];
+  let messages: OpenAiChatMessage[] = [];
 
-  if (systemInstruction) {
-    messages.push({ role: 'system', content: systemInstruction });
-  }
-
-  let userMessageContent: string | Array<OpenAiMessageContentPart>;
-  if (imagePart && imagePart.data) {
-    userMessageContent = [
-      { type: 'text', text: prompt },
-      {
-        type: 'image_url',
-        image_url: {
-          url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
-        },
-      },
-    ];
+  // 如果有消息历史，使用消息历史构建完整对话
+  if (messageHistory && messageHistory.length > 0) {
+    // 截断消息历史以防止超出token限制
+    const truncatedHistory = truncateMessageHistory(messageHistory, 6000);
+    const historyMessages = convertToOpenAIMessages(truncatedHistory);
+    
+    // 转换为本地OpenAiChatMessage格式
+    messages = historyMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content as string | Array<OpenAiMessageContentPart>
+    }));
+    
+    // 如果有系统指令，将其插入到开头
+    if (systemInstruction) {
+      messages.unshift({ role: 'system', content: systemInstruction });
+    }
   } else {
-    userMessageContent = prompt;
+    // 向后兼容：没有消息历史时使用原始逻辑
+    if (systemInstruction) {
+      messages.push({ role: 'system', content: systemInstruction });
+    }
+
+    let userMessageContent: string | Array<OpenAiMessageContentPart>;
+    if (imagePart && imagePart.data) {
+      userMessageContent = [
+        { type: 'text', text: prompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
+          },
+        },
+      ];
+    } else {
+      userMessageContent = prompt;
+    }
+    messages.push({ role: 'user', content: userMessageContent });
   }
-  messages.push({ role: 'user', content: userMessageContent });
 
   const requestBody = {
     model: modelId,
@@ -95,14 +118,14 @@ export const generateOpenAiResponse = async (
     let data;
     try {
       data = await response.json();
-    } catch (parseError) {
+    } catch (parseError: any) {
       const textBody = await response.text();
-      return { 
-        text: "无法解析响应JSON", 
-        durationMs, 
-        error: "JSON Parse Error", 
-        requestDetails, 
-        responseBody: { rawText: textBody, parseError: parseError.message } 
+      return {
+        text: "无法解析响应JSON",
+        durationMs,
+        error: "JSON Parse Error",
+        requestDetails,
+        responseBody: { rawText: textBody, parseError: parseError?.message || 'Unknown parse error' }
       };
     }
 
@@ -163,30 +186,50 @@ export const generateOpenAiStreamResponse = async (
   systemInstruction?: string,
   imagePart?: { mimeType: string; data: string },
   temperature?: number,
-  callbacks?: OpenAiStreamResponse
+  callbacks?: OpenAiStreamResponse,
+  messageHistory?: ChatMessage[]
 ): Promise<void> => {
   const startTime = performance.now();
-  const messages: OpenAiChatMessage[] = [];
+  let messages: OpenAiChatMessage[] = [];
 
-  if (systemInstruction) {
-    messages.push({ role: 'system', content: systemInstruction });
-  }
-
-  let userMessageContent: string | Array<OpenAiMessageContentPart>;
-  if (imagePart && imagePart.data) {
-    userMessageContent = [
-      { type: 'text', text: prompt },
-      {
-        type: 'image_url',
-        image_url: {
-          url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
-        },
-      },
-    ];
+  // 如果有消息历史，使用消息历史构建完整对话
+  if (messageHistory && messageHistory.length > 0) {
+    // 截断消息历史以防止超出token限制
+    const truncatedHistory = truncateMessageHistory(messageHistory, 6000);
+    const historyMessages = convertToOpenAIMessages(truncatedHistory);
+    
+    // 转换为本地OpenAiChatMessage格式
+    messages = historyMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content as string | Array<OpenAiMessageContentPart>
+    }));
+    
+    // 如果有系统指令，将其插入到开头
+    if (systemInstruction) {
+      messages.unshift({ role: 'system', content: systemInstruction });
+    }
   } else {
-    userMessageContent = prompt;
+    // 向后兼容：没有消息历史时使用原始逻辑
+    if (systemInstruction) {
+      messages.push({ role: 'system', content: systemInstruction });
+    }
+
+    let userMessageContent: string | Array<OpenAiMessageContentPart>;
+    if (imagePart && imagePart.data) {
+      userMessageContent = [
+        { type: 'text', text: prompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
+          },
+        },
+      ];
+    } else {
+      userMessageContent = prompt;
+    }
+    messages.push({ role: 'user', content: userMessageContent });
   }
-  messages.push({ role: 'user', content: userMessageContent });
 
   const requestBody = {
     model: modelId,
@@ -220,9 +263,9 @@ export const generateOpenAiStreamResponse = async (
       let data;
       try {
         data = await response.json();
-      } catch (parseError) {
+      } catch (parseError: any) {
         const textBody = await response.text();
-        callbacks?.onError?.("无法解析响应JSON", "JSON Parse Error", durationMs, requestDetails, { rawText: textBody, parseError: parseError.message });
+        callbacks?.onError?.("无法解析响应JSON", "JSON Parse Error", durationMs, requestDetails, { rawText: textBody, parseError: parseError?.message || 'Unknown parse error' });
         return;
       }
 

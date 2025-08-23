@@ -1,12 +1,14 @@
 
 import { GoogleGenAI, GenerateContentResponse, Part } from "@google/genai";
+import { ChatMessage } from '../types';
+import { truncateMessageHistory, buildContextualPrompt } from '../utils/messageConverter';
 
 // Helper to create a GoogleGenAI instance with potential custom fetch
 const createGoogleAIClient = (apiKey: string, customApiEndpoint?: string): GoogleGenAI => {
-  const clientOptions: ConstructorParameters<typeof GoogleGenAI>[0] = { apiKey };
+  const clientOptions: any = { apiKey };
 
   if (customApiEndpoint && customApiEndpoint.trim() !== '') {
-    clientOptions.fetch = async (url, init) => {
+    clientOptions.fetch = async (url: string | URL, init?: RequestInit) => {
       try {
         const sdkUrl = new URL(url.toString());
         // sdkUrl.pathname includes the leading slash e.g. /v1beta/models/..
@@ -58,7 +60,8 @@ export const generateResponse = async (
   systemInstruction?: string,
   imagePart?: { inlineData: { mimeType: string; data: string } },
   thinkingConfig?: { thinkingBudget: number },
-  temperature?: number
+  temperature?: number,
+  messageHistory?: ChatMessage[]
 ): Promise<GeminiResponsePayload> => {
   const startTime = performance.now();
   try {
@@ -67,11 +70,10 @@ export const generateResponse = async (
     let missingKeyUserMessage = "";
     let invalidKeyUserMessage = "API密钥无效或权限不足。请检查您的API密钥配置和权限。";
 
-
     if (useCustomConfig) {
       apiKeyToUse = customApiKey?.trim();
       endpointForClient = customApiEndpoint; // createGoogleAIClient handles if it's empty/default
-      missingKeyUserMessage = "自定义API密钥未在设置中提供。请在设置中输入密钥，或关闭“使用自定义API配置”以使用环境变量。";
+      missingKeyUserMessage = "自定义API密钥未在设置中提供。请在设置中输入密钥，或关闭'使用自定义API配置'以使用环境变量。";
       if (apiKeyToUse) { // If custom key is provided, tailor invalid message slightly
         invalidKeyUserMessage = "提供的自定义API密钥无效或权限不足。请检查设置中的密钥。";
       }
@@ -108,13 +110,29 @@ export const generateResponse = async (
       configForApi.generationConfig = { temperature };
     }
 
-    const textPart: Part = { text: prompt };
-    let requestContents: string | { parts: Part[] };
+    let requestContents: string | { parts: Part[] } | any;
 
-    if (imagePart) {
-      requestContents = { parts: [imagePart, textPart] };
+    // 如果有消息历史，构建完整对话上下文
+    if (messageHistory && messageHistory.length > 0) {
+      // 截断消息历史以防止超出token限制
+      const truncatedHistory = truncateMessageHistory(messageHistory, 6000);
+      
+      // 对于Gemini，我们使用上下文化的prompt方式，因为Gemini的多轮对话API较复杂
+      const contextualPrompt = buildContextualPrompt(prompt, truncatedHistory, 15);
+      
+      if (imagePart) {
+        requestContents = { parts: [imagePart, { text: contextualPrompt }] };
+      } else {
+        requestContents = contextualPrompt;
+      }
     } else {
-      requestContents = prompt;
+      // 向后兼容：没有消息历史时使用原始逻辑
+      const textPart: Part = { text: prompt };
+      if (imagePart) {
+        requestContents = { parts: [imagePart, textPart] };
+      } else {
+        requestContents = prompt;
+      }
     }
 
     const response: GenerateContentResponse = await genAI.models.generateContent({
@@ -124,7 +142,8 @@ export const generateResponse = async (
     });
 
     const durationMs = performance.now() - startTime;
-    return { text: response.text, durationMs };
+    const responseText = response.text || '';
+    return { text: responseText, durationMs };
   } catch (error) {
     console.error("调用Gemini API时出错:", error);
     const durationMs = performance.now() - startTime;
@@ -175,7 +194,8 @@ export const generateStreamResponse = async (
   imagePart?: { inlineData: { mimeType: string; data: string } },
   thinkingConfig?: { thinkingBudget: number },
   temperature?: number,
-  callbacks?: GeminiStreamResponse
+  callbacks?: GeminiStreamResponse,
+  messageHistory?: ChatMessage[]
 ): Promise<void> => {
   const startTime = performance.now();
   
@@ -190,7 +210,8 @@ export const generateStreamResponse = async (
       systemInstruction,
       imagePart,
       thinkingConfig,
-      temperature
+      temperature,
+      messageHistory
     );
 
     if (result.error) {

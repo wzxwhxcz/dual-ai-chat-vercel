@@ -21,25 +21,25 @@ interface UseChatLogicProps {
   processNotepadUpdateFromAI: (parsedResponse: ParsedAIResponse, sender: MessageSender, addSystemMessage: UseChatLogicProps['addMessage']) => void;
   setGlobalApiKeyStatus: (status: {isMissing?: boolean, isInvalid?: boolean, message?: string}) => void;
   
-  cognitoModelDetails: AiModel; 
-  museModelDetails: AiModel;    
+  cognitoModelDetails: AiModel;
+  museModelDetails: AiModel;
   
   // Gemini Custom Config
-  useCustomApiConfig: boolean; 
-  customApiKey: string; 
-  customApiEndpoint: string; 
+  useCustomApiConfig: boolean;
+  customApiKey: string;
+  customApiEndpoint: string;
 
   // OpenAI Custom Config
   useOpenAiApiConfig: boolean;
   openAiApiKey: string;
   openAiApiBaseUrl: string;
-  openAiCognitoModelId: string; 
-  openAiMuseModelId: string;    
+  openAiCognitoModelId: string;
+  openAiMuseModelId: string;
 
   // Shared Settings
   discussionMode: DiscussionMode;
   manualFixedTurns: number;
-  isThinkingBudgetActive: boolean; 
+  isThinkingBudgetActive: boolean;
   cognitoSystemPrompt: string;
   museSystemPrompt: string;
   notepadContent: string;
@@ -47,24 +47,27 @@ interface UseChatLogicProps {
   stopProcessingTimer: () => void;
   currentQueryStartTimeRef: React.MutableRefObject<number | null>;
   temperature: number;
+  
+  // 新增：消息历史访问
+  getAllMessages: () => ChatMessage[];
 }
 
 export const useChatLogic = ({
   addMessage,
   processNotepadUpdateFromAI,
   setGlobalApiKeyStatus,
-  cognitoModelDetails, 
-  museModelDetails, 
+  cognitoModelDetails,
+  museModelDetails,
   // Gemini
-  useCustomApiConfig, 
-  customApiKey, 
-  customApiEndpoint, 
+  useCustomApiConfig,
+  customApiKey,
+  customApiEndpoint,
   // OpenAI
   useOpenAiApiConfig,
   openAiApiKey,
   openAiApiBaseUrl,
-  openAiCognitoModelId,
-  openAiMuseModelId,
+  openAiCognitoModelId: _openAiCognitoModelId,  // 参数传入但在此不直接使用
+  openAiMuseModelId: _openAiMuseModelId,        // 参数传入但在此不直接使用
   // Shared
   discussionMode,
   manualFixedTurns,
@@ -74,8 +77,10 @@ export const useChatLogic = ({
   notepadContent,
   startProcessingTimer,
   stopProcessingTimer,
-  currentQueryStartTimeRef,
+  currentQueryStartTimeRef: _currentQueryStartTimeRef, // 参数传入但在此不直接使用
   temperature,
+  // 新增
+  getAllMessages,
 }: UseChatLogicProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [discussionLog, setDiscussionLog] = useState<string[]>([]);
@@ -96,16 +101,17 @@ export const useChatLogic = ({
 
   const commonAIStepExecution = useCallback(async (
     stepIdentifier: string,
-    prompt: string, 
-    modelDetailsForStep: AiModel, 
-    senderForStep: MessageSender, 
+    prompt: string,
+    modelDetailsForStep: AiModel,
+    senderForStep: MessageSender,
     purposeForStep: MessagePurpose,
-    imageApiPartForStep?: { inlineData: { mimeType: string; data: string } }, 
-    userInputForFlowContext?: string, 
-    imageApiPartForFlowContext?: { inlineData: { mimeType: string; data: string } }, 
+    imageApiPartForStep?: { inlineData: { mimeType: string; data: string } },
+    userInputForFlowContext?: string,
+    imageApiPartForFlowContext?: { inlineData: { mimeType: string; data: string } },
     discussionLogBeforeFailureContext?: string[],
     currentTurnIndexForResumeContext?: number,
-    previousAISignaledStopForResumeContext?: boolean
+    previousAISignaledStopForResumeContext?: boolean,
+    messageHistory?: ChatMessage[]  // 新增：消息历史参数
   ): Promise<ParsedAIResponse> => {
     let stepSuccess = false;
     let parsedResponse: ParsedAIResponse | null = null;
@@ -113,6 +119,9 @@ export const useChatLogic = ({
     
     const systemInstructionToUse = senderForStep === MessageSender.Cognito ? cognitoSystemPrompt : museSystemPrompt;
     const thinkingConfigToUseForGemini = getThinkingConfigForGeminiModel(modelDetailsForStep);
+
+    // 获取消息历史：优先使用传入的参数，否则获取当前所有消息
+    const historyToUse = messageHistory || getAllMessages();
 
     while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
       if (cancelRequestRef.current) throw new Error("用户取消操作");
@@ -125,24 +134,26 @@ export const useChatLogic = ({
         if (useOpenAiApiConfig) {
           result = await generateOpenAiResponse(
             prompt,
-            currentOpenAiModelId, 
+            currentOpenAiModelId,
             openAiApiKey,
             openAiApiBaseUrl,
             modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
             imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined,
-            temperature
+            temperature,
+            historyToUse  // 传递消息历史
           );
-        } else { 
+        } else {
           result = await generateGeminiResponse(
             prompt,
-            modelDetailsForStep.apiName, 
-            useCustomApiConfig, 
-            customApiKey, 
-            customApiEndpoint, 
+            modelDetailsForStep.apiName,
+            useCustomApiConfig,
+            customApiKey,
+            customApiEndpoint,
             modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
             imageApiPartForStep,
             thinkingConfigToUseForGemini,
-            temperature
+            temperature,
+            historyToUse  // 传递消息历史
           );
         }
 
@@ -226,10 +237,11 @@ export const useChatLogic = ({
     }
     return parsedResponse;
   }, [
-      addMessage, cognitoSystemPrompt, museSystemPrompt, getThinkingConfigForGeminiModel, 
+      addMessage, cognitoSystemPrompt, museSystemPrompt, getThinkingConfigForGeminiModel,
       useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl,
-      useCustomApiConfig, customApiKey, customApiEndpoint, 
-      setGlobalApiKeyStatus, setIsLoading, setIsInternalDiscussionActive, temperature
+      useCustomApiConfig, customApiKey, customApiEndpoint,
+      setGlobalApiKeyStatus, setIsLoading, setIsInternalDiscussionActive, temperature,
+      getAllMessages  // 添加新的依赖
     ]);
 
   const continueDiscussionAfterSuccessfulRetry = useCallback(async (
@@ -639,30 +651,35 @@ export const useChatLogic = ({
     let result: { text: string; durationMs: number; error?: string; requestDetails?: any; responseBody?: any } | undefined;
 
     try {
-      const geminiImageApiPartForRetry = updatedStepToRetry.imageApiPart; 
+      const geminiImageApiPartForRetry = updatedStepToRetry.imageApiPart;
       const currentOpenAiModelIdForRetry = modelForRetry.apiName;
+      
+      // 获取当前消息历史用于重试
+      const historyForRetry = getAllMessages();
 
       if (useOpenAiApiConfig) {
         result = await generateOpenAiResponse(
           updatedStepToRetry.prompt,
-          currentOpenAiModelIdForRetry, 
+          currentOpenAiModelIdForRetry,
           openAiApiKey,
           openAiApiBaseUrl,
           updatedStepToRetry.systemInstruction,
           geminiImageApiPartForRetry ? { mimeType: geminiImageApiPartForRetry.inlineData.mimeType, data: geminiImageApiPartForRetry.inlineData.data } : undefined,
-          temperature
+          temperature,
+          historyForRetry  // 传递消息历史
         );
-      } else { 
+      } else {
         result = await generateGeminiResponse(
           updatedStepToRetry.prompt,
-          modelForRetry.apiName, 
+          modelForRetry.apiName,
           useCustomApiConfig,
-          customApiKey, 
-          customApiEndpoint, 
+          customApiKey,
+          customApiEndpoint,
           updatedStepToRetry.systemInstruction,
           geminiImageApiPartForRetry,
           getThinkingConfigForGeminiModel(modelForRetry),
-          temperature
+          temperature,
+          historyForRetry  // 传递消息历史
         );
       }
 

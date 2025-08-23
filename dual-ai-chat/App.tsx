@@ -238,6 +238,9 @@ const App: React.FC = () => {
   }, [useOpenAiApiConfig, openAiMuseModelId, selectedMuseModelApiName]);
 
 
+  // 提供给useChatLogic的消息获取函数
+  const getAllMessages = useCallback(() => messages, [messages]);
+
   const {
     isLoading,
     failedStepInfo,
@@ -252,10 +255,10 @@ const App: React.FC = () => {
     addMessage,
     processNotepadUpdateFromAI,
     setGlobalApiKeyStatus: setApiKeyStatus,
-    cognitoModelDetails: actualCognitoModelDetails, 
-    museModelDetails: actualMuseModelDetails,    
+    cognitoModelDetails: actualCognitoModelDetails,
+    museModelDetails: actualMuseModelDetails,
     // Gemini Custom Config
-    useCustomApiConfig, 
+    useCustomApiConfig,
     customApiKey,
     customApiEndpoint,
     // OpenAI Custom Config
@@ -267,14 +270,16 @@ const App: React.FC = () => {
     // Shared Settings
     discussionMode,
     manualFixedTurns,
-    isThinkingBudgetActive, 
+    isThinkingBudgetActive,
     cognitoSystemPrompt,
     museSystemPrompt,
-    notepadContent, 
+    notepadContent,
     startProcessingTimer,
     stopProcessingTimer,
     currentQueryStartTimeRef,
     temperature,
+    // 新增：消息历史访问
+    getAllMessages,
   });
 
   // Save Gemini custom config
