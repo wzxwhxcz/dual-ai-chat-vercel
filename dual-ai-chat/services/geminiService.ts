@@ -112,6 +112,16 @@ export const generateResponse = async (
 
     let requestContents: string | { parts: Part[] } | any;
 
+    // 🔍 DEBUG: 验证Gemini服务中的消息历史
+    console.log(`[DEBUG-Gemini] generateResponse调用:`, {
+      传入的messageHistory长度: messageHistory?.length || 0,
+      messageHistory前3条: messageHistory?.slice(0, 3).map(m => ({
+        sender: m.sender,
+        text: m.text.substring(0, 50) + '...'
+      })) || [],
+      使用消息历史: !!(messageHistory && messageHistory.length > 0)
+    });
+
     // 如果有消息历史，构建完整对话上下文
     if (messageHistory && messageHistory.length > 0) {
       // 截断消息历史以防止超出token限制
@@ -119,6 +129,13 @@ export const generateResponse = async (
       
       // 对于Gemini，我们使用上下文化的prompt方式，因为Gemini的多轮对话API较复杂
       const contextualPrompt = buildContextualPrompt(prompt, truncatedHistory, 15);
+      
+      console.log(`[DEBUG-Gemini] 消息历史处理结果:`, {
+        原始历史长度: messageHistory.length,
+        截断后长度: truncatedHistory.length,
+        最大历史长度限制: 15,
+        构建的上下文化prompt长度: contextualPrompt.length
+      });
       
       if (imagePart) {
         requestContents = { parts: [imagePart, { text: contextualPrompt }] };

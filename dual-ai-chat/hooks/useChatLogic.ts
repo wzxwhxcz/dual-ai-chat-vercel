@@ -122,6 +122,18 @@ export const useChatLogic = ({
 
     // 获取消息历史：优先使用传入的参数，否则获取当前所有消息
     const historyToUse = messageHistory || getAllMessages();
+    
+    // 🔍 DEBUG: 验证消息历史传递
+    console.log(`[DEBUG-${stepIdentifier}] commonAIStepExecution调用:`, {
+      传入的messageHistory长度: messageHistory?.length || 0,
+      实际使用的historyToUse长度: historyToUse?.length || 0,
+      historyToUse前3条消息: historyToUse?.slice(0, 3).map(m => ({
+        sender: m.sender,
+        text: m.text.substring(0, 100) + '...'
+      })) || [],
+      stepIdentifier,
+      senderForStep
+    });
 
     while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
       if (cancelRequestRef.current) throw new Error("用户取消操作");
@@ -327,7 +339,7 @@ export const useChatLogic = ({
 
             const museParsedResponse = await commonAIStepExecution(
                 museStepIdentifier, musePromptText, effectiveMuseModel, MessageSender.Muse, MessagePurpose.MuseToCognito, imageApiPartForFlow,
-                userInputForFlow, imageApiPartForFlow, [...localDiscussionLog], turn, localPreviousAISignaledStop
+                userInputForFlow, imageApiPartForFlow, [...localDiscussionLog], turn, localPreviousAISignaledStop, getAllMessages()
             );
             if (cancelRequestRef.current) return;
             processNotepadUpdateFromAI(museParsedResponse, MessageSender.Muse, addMessage);
@@ -356,7 +368,7 @@ export const useChatLogic = ({
 
           const cognitoReplyParsedResponse = await commonAIStepExecution(
               cognitoReplyStepIdentifier, cognitoReplyPromptText, effectiveCognitoModel, MessageSender.Cognito, MessagePurpose.CognitoToMuse, imageApiPartForFlow,
-              userInputForFlow, imageApiPartForFlow, [...localDiscussionLog], turn, localPreviousAISignaledStop
+              userInputForFlow, imageApiPartForFlow, [...localDiscussionLog], turn, localPreviousAISignaledStop, getAllMessages()
           );
           if (cancelRequestRef.current) return;
           processNotepadUpdateFromAI(cognitoReplyParsedResponse, MessageSender.Cognito, addMessage);
@@ -396,7 +408,7 @@ export const useChatLogic = ({
 
       const finalAnswerParsedResponse = await commonAIStepExecution(
           finalAnswerStepIdentifier, finalAnswerPromptText, effectiveCognitoModel, MessageSender.Cognito, MessagePurpose.FinalResponse, imageApiPartForFlow,
-          userInputForFlow, imageApiPartForFlow, [...localDiscussionLog]
+          userInputForFlow, imageApiPartForFlow, [...localDiscussionLog], undefined, undefined, getAllMessages()
       );
       if (cancelRequestRef.current) return;
       processNotepadUpdateFromAI(finalAnswerParsedResponse, MessageSender.Cognito, addMessage);
@@ -512,9 +524,19 @@ export const useChatLogic = ({
         let musePromptText = `用户的查询 (中文) 是: "${userInput}". ${imageInstructionForAI} 当前讨论 (均为中文):\n${currentLocalDiscussionLog.join("\n")}\n${MessageSender.Cognito} (逻辑AI) 刚刚说 (中文): "${lastTurnTextForLog}". 请回复 ${MessageSender.Cognito}。继续讨论。保持您的回复简洁并使用中文。\n${commonPromptInstructions()}`;
         if (discussionMode === DiscussionMode.AiDriven && previousAISignaledStop) musePromptText += `\n${MessageSender.Cognito} 已包含 ${DISCUSSION_COMPLETE_TAG} 建议结束讨论。如果您同意，请在您的回复中也包含 ${DISCUSSION_COMPLETE_TAG}。否则，请继续讨论。`;
 
+        // 🔍 DEBUG: AI间讨论 - Muse调用前的状态检查
+        const currentMessages = getAllMessages();
+        console.log(`[DEBUG-DISCUSSION-MUSE] Turn ${turn} Muse调用前状态:`, {
+          currentMessages长度: currentMessages.length,
+          currentLocalDiscussionLog长度: currentLocalDiscussionLog.length,
+          currentLocalDiscussionLog内容: currentLocalDiscussionLog,
+          用户原始输入: userInput,
+          是否传递了完整历史: '❌ 未传递messageHistory参数！'
+        });
+
         const museParsedResponse = await commonAIStepExecution(
             museStepIdentifier, musePromptText, effectiveMuseModel, MessageSender.Muse, MessagePurpose.MuseToCognito, geminiImageApiPart,
-            userInput, geminiImageApiPart, [...currentLocalDiscussionLog], turn, previousAISignaledStop
+            userInput, geminiImageApiPart, [...currentLocalDiscussionLog], turn, previousAISignaledStop, getAllMessages()
         );
         if (cancelRequestRef.current) break;
         processNotepadUpdateFromAI(museParsedResponse, MessageSender.Muse, addMessage);
@@ -539,9 +561,16 @@ export const useChatLogic = ({
         let cognitoReplyPromptText = `用户的查询 (中文) 是: "${userInput}". ${imageInstructionForAI} 当前讨论 (均为中文):\n${currentLocalDiscussionLog.join("\n")}\n${MessageSender.Muse} (创意AI) 刚刚说 (中文): "${lastTurnTextForLog}". 请回复 ${MessageSender.Muse}。继续讨论。保持您的回复简洁并使用中文。\n${commonPromptInstructions()}`;
         if (discussionMode === DiscussionMode.AiDriven && previousAISignaledStop) cognitoReplyPromptText += `\n${MessageSender.Muse} 已包含 ${DISCUSSION_COMPLETE_TAG} 建议结束讨论。如果您同意，请在您的回复中也包含 ${DISCUSSION_COMPLETE_TAG}。否则，请继续讨论。`;
 
+        // 🔍 DEBUG: AI间讨论 - Cognito回复调用前的状态检查
+        console.log(`[DEBUG-DISCUSSION-COGNITO] Turn ${turn} Cognito回复调用前状态:`, {
+          currentMessages长度: getAllMessages().length,
+          currentLocalDiscussionLog长度: currentLocalDiscussionLog.length,
+          是否传递了完整历史: '❌ 未传递messageHistory参数！'
+        });
+
         const cognitoReplyParsedResponse = await commonAIStepExecution(
             cognitoReplyStepIdentifier, cognitoReplyPromptText, effectiveCognitoModel, MessageSender.Cognito, MessagePurpose.CognitoToMuse, geminiImageApiPart,
-            userInput, geminiImageApiPart, [...currentLocalDiscussionLog], turn, previousAISignaledStop
+            userInput, geminiImageApiPart, [...currentLocalDiscussionLog], turn, previousAISignaledStop, getAllMessages()
         );
         if (cancelRequestRef.current) break;
         processNotepadUpdateFromAI(cognitoReplyParsedResponse, MessageSender.Cognito, addMessage);
@@ -576,9 +605,17 @@ export const useChatLogic = ({
 **严格遵守以上指令。最终答案必须在记事本中。**
 \n${commonPromptInstructions()}`;
 
+      // 🔍 DEBUG: 最终答案生成前的状态检查
+      console.log(`[DEBUG-FINAL-ANSWER] 最终答案生成前状态:`, {
+        currentMessages长度: getAllMessages().length,
+        currentLocalDiscussionLog长度: currentLocalDiscussionLog.length,
+        discussionLog完整内容: currentLocalDiscussionLog.join('\n'),
+        是否传递了完整历史: '❌ 未传递messageHistory参数！'
+      });
+
       const finalAnswerParsedResponse = await commonAIStepExecution(
           finalAnswerStepIdentifier, finalAnswerPromptText, effectiveCognitoModel, MessageSender.Cognito, MessagePurpose.FinalResponse, geminiImageApiPart,
-          userInput, geminiImageApiPart, [...currentLocalDiscussionLog]
+          userInput, geminiImageApiPart, [...currentLocalDiscussionLog], undefined, undefined, getAllMessages()
       );
       if (cancelRequestRef.current) throw new Error("用户取消操作");
       processNotepadUpdateFromAI(finalAnswerParsedResponse, MessageSender.Cognito, addMessage);

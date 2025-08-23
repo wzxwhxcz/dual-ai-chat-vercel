@@ -239,7 +239,20 @@ const App: React.FC = () => {
 
 
   // 提供给useChatLogic的消息获取函数
-  const getAllMessages = useCallback(() => messages, [messages]);
+  const getAllMessages = useCallback(() => {
+    // 🔍 DEBUG: 监控getAllMessages调用
+    console.log(`[DEBUG-getAllMessages] App.tsx中的getAllMessages被调用:`, {
+      当前messages数组长度: messages.length,
+      最后3条消息: messages.slice(-3).map(m => ({
+        id: m.id,
+        sender: m.sender,
+        purpose: m.purpose,
+        text: m.text.substring(0, 100) + '...',
+        timestamp: m.timestamp
+      }))
+    });
+    return messages;
+  }, [messages]);
 
   const {
     isLoading,

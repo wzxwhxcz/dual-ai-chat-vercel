@@ -48,11 +48,27 @@ export const generateOpenAiResponse = async (
   const startTime = performance.now();
   let messages: OpenAiChatMessage[] = [];
 
+  // 🔍 DEBUG: 验证OpenAI服务中的消息历史
+  console.log(`[DEBUG-OpenAI] generateOpenAiResponse调用:`, {
+    传入的messageHistory长度: messageHistory?.length || 0,
+    messageHistory前3条: messageHistory?.slice(0, 3).map(m => ({
+      sender: m.sender,
+      text: m.text.substring(0, 50) + '...'
+    })) || [],
+    使用消息历史: !!(messageHistory && messageHistory.length > 0)
+  });
+
   // 如果有消息历史，使用消息历史构建完整对话
   if (messageHistory && messageHistory.length > 0) {
     // 截断消息历史以防止超出token限制
     const truncatedHistory = truncateMessageHistory(messageHistory, 6000);
     const historyMessages = convertToOpenAIMessages(truncatedHistory);
+    
+    console.log(`[DEBUG-OpenAI] 消息历史处理结果:`, {
+      原始历史长度: messageHistory.length,
+      截断后长度: truncatedHistory.length,
+      转换后OpenAI格式消息数: historyMessages.length
+    });
     
     // 转换为本地OpenAiChatMessage格式
     messages = historyMessages.map(msg => ({
