@@ -112,14 +112,18 @@ export const generateResponse = async (
 
     let requestContents: string | { parts: Part[] } | any;
 
-    // 🔍 DEBUG: 验证Gemini服务中的消息历史
-    console.log(`[DEBUG-Gemini] generateResponse调用:`, {
+    // 🔍 DEBUG: 验证Gemini服务中的消息历史和关键参数
+    console.log(`[CRITICAL-DEBUG-Gemini] generateResponse调用详情:`, {
+      传入的prompt长度: prompt?.length || 0,
+      传入的prompt前100字符: prompt?.substring(0, 100) || '❌ EMPTY PROMPT',
       传入的messageHistory长度: messageHistory?.length || 0,
       messageHistory前3条: messageHistory?.slice(0, 3).map(m => ({
         sender: m.sender,
         text: m.text.substring(0, 50) + '...'
       })) || [],
-      使用消息历史: !!(messageHistory && messageHistory.length > 0)
+      使用消息历史: !!(messageHistory && messageHistory.length > 0),
+      modelName: modelName,
+      systemInstruction长度: systemInstruction?.length || 0
     });
 
     // 如果有消息历史，构建完整对话上下文
@@ -130,12 +134,23 @@ export const generateResponse = async (
       // 对于Gemini，我们使用上下文化的prompt方式，因为Gemini的多轮对话API较复杂
       const contextualPrompt = buildContextualPrompt(prompt, truncatedHistory, 15);
       
-      console.log(`[DEBUG-Gemini] 消息历史处理结果:`, {
+      console.log(`[CRITICAL-DEBUG-Gemini] 消息历史处理结果:`, {
         原始历史长度: messageHistory.length,
         截断后长度: truncatedHistory.length,
         最大历史长度限制: 15,
-        构建的上下文化prompt长度: contextualPrompt.length
+        构建的上下文化prompt长度: contextualPrompt.length,
+        上下文化prompt内容预览: contextualPrompt.substring(0, 200) + '...'
       });
+      
+      // 🚨 CRITICAL: 验证contextualPrompt不为空
+      if (!contextualPrompt || contextualPrompt.trim().length === 0) {
+        console.error(`[CRITICAL-ERROR] 上下文化prompt为空！`, {
+          contextualPrompt,
+          原始prompt: prompt,
+          truncatedHistory长度: truncatedHistory.length
+        });
+        throw new Error('构建的上下文化prompt为空，无法发送给Gemini API');
+      }
       
       if (imagePart) {
         requestContents = { parts: [imagePart, { text: contextualPrompt }] };
@@ -144,6 +159,17 @@ export const generateResponse = async (
       }
     } else {
       // 向后兼容：没有消息历史时使用原始逻辑
+      console.log(`[CRITICAL-DEBUG-Gemini] 使用原始prompt:`, {
+        原始prompt长度: prompt?.length || 0,
+        原始prompt前100字符: prompt?.substring(0, 100) || '❌ EMPTY PROMPT'
+      });
+      
+      // 🚨 CRITICAL: 验证原始prompt不为空
+      if (!prompt || prompt.trim().length === 0) {
+        console.error(`[CRITICAL-ERROR] 原始prompt为空！无法发送给Gemini API`);
+        throw new Error('原始prompt为空，无法发送给Gemini API');
+      }
+      
       const textPart: Part = { text: prompt };
       if (imagePart) {
         requestContents = { parts: [imagePart, textPart] };
@@ -151,6 +177,16 @@ export const generateResponse = async (
         requestContents = prompt;
       }
     }
+
+    // 🚨 FINAL CRITICAL CHECK: 验证requestContents
+    console.log(`[CRITICAL-DEBUG-Gemini] 最终requestContents验证:`, {
+      requestContents类型: typeof requestContents,
+      requestContents是否为空: !requestContents,
+      requestContents长度: typeof requestContents === 'string' ? requestContents.length : 'N/A',
+      requestContents预览: typeof requestContents === 'string'
+        ? requestContents.substring(0, 100) + '...'
+        : JSON.stringify(requestContents, null, 2).substring(0, 200) + '...'
+    });
 
     const response: GenerateContentResponse = await genAI.models.generateContent({
       model: modelName,

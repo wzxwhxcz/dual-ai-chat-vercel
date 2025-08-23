@@ -123,17 +123,37 @@ export const useChatLogic = ({
     // 获取消息历史：优先使用传入的参数，否则获取当前所有消息
     const historyToUse = messageHistory || getAllMessages();
     
-    // 🔍 DEBUG: 验证消息历史传递
-    console.log(`[DEBUG-${stepIdentifier}] commonAIStepExecution调用:`, {
+    // 🚨 CRITICAL DEBUG: 验证消息历史传递和关键参数
+    console.log(`[CRITICAL-DEBUG-${stepIdentifier}] commonAIStepExecution调用详情:`, {
       传入的messageHistory长度: messageHistory?.length || 0,
+      getAllMessages返回长度: getAllMessages()?.length || 0,
       实际使用的historyToUse长度: historyToUse?.length || 0,
       historyToUse前3条消息: historyToUse?.slice(0, 3).map(m => ({
         sender: m.sender,
-        text: m.text.substring(0, 100) + '...'
+        text: m.text.substring(0, 50) + '...'
       })) || [],
+      prompt长度: prompt?.length || 0,
+      prompt前100字符: prompt?.substring(0, 100) || '❌ EMPTY PROMPT',
       stepIdentifier,
-      senderForStep
+      senderForStep,
+      modelDetailsForStep: modelDetailsForStep.name
     });
+
+    // 🚨 CRITICAL: 检查getAllMessages是否正常工作
+    if (!getAllMessages || typeof getAllMessages !== 'function') {
+      console.error(`[CRITICAL-ERROR] getAllMessages函数无效!`, { getAllMessages });
+      throw new Error('getAllMessages函数无效，无法获取消息历史');
+    }
+
+    // 🚨 CRITICAL: 检查prompt是否为空
+    if (!prompt || prompt.trim().length === 0) {
+      console.error(`[CRITICAL-ERROR] 传入的prompt为空!`, {
+        prompt,
+        stepIdentifier,
+        senderForStep
+      });
+      throw new Error(`步骤${stepIdentifier}的prompt为空，无法继续执行`);
+    }
 
     while (autoRetryCount <= MAX_AUTO_RETRIES && !stepSuccess) {
       if (cancelRequestRef.current) throw new Error("用户取消操作");

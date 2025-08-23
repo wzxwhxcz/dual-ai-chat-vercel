@@ -76,6 +76,33 @@ export const generateOpenAiResponse = async (
       content: msg.content as string | Array<OpenAiMessageContentPart>
     }));
     
+    // 🔧 CRITICAL FIX: 检查转换后的messages是否缺少user/assistant内容
+    const hasUserOrAssistantMessage = messages.some(m =>
+        m.role === 'user' || m.role === 'assistant'
+    );
+    
+    // 如果没有user/assistant消息且有当前prompt，添加为user消息
+    if (!hasUserOrAssistantMessage && prompt && prompt.trim()) {
+      console.log(`[DEBUG-OpenAI] 历史消息转换后缺少user/assistant内容，添加当前prompt作为user消息`);
+      
+      // 复用现有的用户消息内容构建逻辑
+      let userMessageContent: string | Array<OpenAiMessageContentPart>;
+      if (imagePart && imagePart.data) {
+        userMessageContent = [
+          { type: 'text', text: prompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
+            },
+          },
+        ];
+      } else {
+        userMessageContent = prompt;
+      }
+      messages.push({ role: 'user', content: userMessageContent });
+    }
+    
     // 如果有系统指令，将其插入到开头
     if (systemInstruction) {
       messages.unshift({ role: 'system', content: systemInstruction });
@@ -219,6 +246,33 @@ export const generateOpenAiStreamResponse = async (
       role: msg.role,
       content: msg.content as string | Array<OpenAiMessageContentPart>
     }));
+    
+    // 🔧 CRITICAL FIX: 检查转换后的messages是否缺少user/assistant内容
+    const hasUserOrAssistantMessage = messages.some(m =>
+        m.role === 'user' || m.role === 'assistant'
+    );
+    
+    // 如果没有user/assistant消息且有当前prompt，添加为user消息
+    if (!hasUserOrAssistantMessage && prompt && prompt.trim()) {
+      console.log(`[DEBUG-OpenAI-Stream] 历史消息转换后缺少user/assistant内容，添加当前prompt作为user消息`);
+      
+      // 复用现有的用户消息内容构建逻辑
+      let userMessageContent: string | Array<OpenAiMessageContentPart>;
+      if (imagePart && imagePart.data) {
+        userMessageContent = [
+          { type: 'text', text: prompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${imagePart.mimeType};base64,${imagePart.data}`,
+            },
+          },
+        ];
+      } else {
+        userMessageContent = prompt;
+      }
+      messages.push({ role: 'user', content: userMessageContent });
+    }
     
     // 如果有系统指令，将其插入到开头
     if (systemInstruction) {
