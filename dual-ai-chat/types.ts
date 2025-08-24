@@ -124,6 +124,11 @@ export interface ApiChannel {
   defaultModel: string;
   timeout: number;
   isDefault: boolean;
+  /**
+   * 渠道是否启用（用于一键启用/禁用该渠道）
+   * 兼容旧数据：若缺省则视为 true
+   */
+  enabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
   metadata?: {

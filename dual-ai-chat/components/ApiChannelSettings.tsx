@@ -35,6 +35,8 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { cn } from '../lib/utils';
+import { Dialog, DialogContent } from './ui/dialog';
+import { Switch } from './ui/switch';
 
 interface ApiChannelSettingsProps {}
 
@@ -57,6 +59,7 @@ const ApiChannelSettings: React.FC<ApiChannelSettingsProps> = () => {
     updateChannel,
     deleteChannel,
     setAsDefault,
+    setChannelEnabled,
     duplicateChannel,
     validateChannel
   } = useApiChannels();
@@ -128,21 +131,24 @@ const ApiChannelSettings: React.FC<ApiChannelSettingsProps> = () => {
 
   // 表单数据变更
   const handleFormChange = useCallback((field: keyof ChannelFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // 提供商变更时的联动逻辑
+    // 提供商变更：一次性原子更新，避免多次 set 导致 provider 未更新或联动字段错位
     if (field === 'provider') {
       const provider = value as ApiChannelProvider;
-      const template = provider === 'gemini' 
-        ? DEFAULT_CHANNEL_TEMPLATES.GEMINI 
+      const template = provider === 'gemini'
+        ? DEFAULT_CHANNEL_TEMPLATES.GEMINI
         : DEFAULT_CHANNEL_TEMPLATES.OPENAI_LOCALHOST;
-        
+  
       setFormData(prev => ({
         ...prev,
+        provider,                 // 确保 provider 同步更新
         baseUrl: template.baseUrl,
-        defaultModel: template.defaultModel
+        defaultModel: template.defaultModel,
       }));
+      return;
     }
+  
+    // 其他字段按常规更新
+    setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
   // 提交表单
@@ -303,6 +309,18 @@ const ApiChannelSettings: React.FC<ApiChannelSettingsProps> = () => {
     }
   }, [formData, isFormOpen, validateForm]);
 
+  // 防止 react-remove-scroll 在 body/父层强制 pointer-events:none 影响可交互性
+  useEffect(() => {
+    if (!isFormOpen) return;
+    const prev = document.body.style.pointerEvents;
+    // 强制恢复交互，避免 body 上的 inline pointer-events: none 导致遮罩/内容“透明”或不可交互
+    document.body.style.pointerEvents = 'auto';
+    return () => {
+      document.body.style.pointerEvents = prev;
+    };
+  }, [isFormOpen]);
+
+
   return (
     <div className="space-y-6">
       {/* 头部操作栏 */}
@@ -364,6 +382,20 @@ const ApiChannelSettings: React.FC<ApiChannelSettingsProps> = () => {
                           默认
                         </div>
                       )}
+                      {/* 启用/禁用开关 */}
+                      <div className="ml-2 flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>启用</span>
+                        <Switch
+                          checked={channel.enabled !== false}
+                          onCheckedChange={(checked) => {
+                            setChannelEnabled(channel.id, checked).catch(err => {
+                              console.error('更新渠道启用状态失败', err);
+                              alert('更新渠道启用状态失败，请重试');
+                            });
+                          }}
+                          aria-label={`切换渠道 ${channel.name} 启用状态`}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -498,162 +530,175 @@ const ApiChannelSettings: React.FC<ApiChannelSettingsProps> = () => {
         )}
       </div>
 
-      {/* 渠道编辑表单弹窗 */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">
-                  {isEditing ? '编辑渠道' : '新增渠道'}
-                </h3>
-                <Button variant="ghost" size="sm" onClick={handleCloseForm}>
-                  ×
-                </Button>
-              </div>
+      {/* 渠道编辑表单弹窗（使用 Radix Dialog Portal，避免叠层上下文导致的“透明”问题） */}
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseForm();
+        }}
+      >
+        <DialogContent
+          overlayClassName="z-[1100] pointer-events-auto bg-black/60"
+          containerClassName="z-[1101] pointer-events-auto"
+          className="max-w-2xl w-full max-h-[90vh] bg-white p-0"
+        >
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">
+                {isEditing ? '编辑渠道' : '新增渠道'}
+              </h3>
+            </div>
 
-              <div className="space-y-4">
-                {/* 渠道名称 */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    渠道名称 *
-                  </label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    placeholder="例如: 本地 Ollama"
-                  />
-                  {formErrors.find(e => e.field === 'name') && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {formErrors.find(e => e.field === 'name')?.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* 提供商选择 */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    提供商 *
-                  </label>
-                  <Select
-                    value={formData.provider}
-                    onValueChange={(value) => handleFormChange('provider', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gemini">Google Gemini</SelectItem>
-                      <SelectItem value="openai">OpenAI 兼容</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* API Key */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    API Key *
-                  </label>
-                  <Input
-                    type="password"
-                    value={formData.apiKey}
-                    onChange={(e) => handleFormChange('apiKey', e.target.value)}
-                    placeholder="输入您的 API 密钥"
-                  />
-                  {formErrors.find(e => e.field === 'apiKey') && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {formErrors.find(e => e.field === 'apiKey')?.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Base URL (仅 OpenAI 兼容) */}
-                {formData.provider === 'openai' && (
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">
-                      Base URL *
-                    </label>
-                    <Input
-                      value={formData.baseUrl}
-                      onChange={(e) => handleFormChange('baseUrl', e.target.value)}
-                      placeholder="http://localhost:11434/v1"
-                    />
-                    {formErrors.find(e => e.field === 'baseUrl') && (
-                      <p className="text-red-600 text-sm mt-1">
-                        {formErrors.find(e => e.field === 'baseUrl')?.message}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* 默认模型 */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    默认模型 *
-                  </label>
-                  <Input
-                    value={formData.defaultModel}
-                    onChange={(e) => handleFormChange('defaultModel', e.target.value)}
-                    placeholder="例如: gemini-2.5-pro 或 llama3"
-                  />
-                  {formErrors.find(e => e.field === 'defaultModel') && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {formErrors.find(e => e.field === 'defaultModel')?.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* 超时设置 */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    超时时间 (秒) *
-                  </label>
-                  <Input
-                    type="number"
-                    value={formData.timeout / 1000}
-                    onChange={(e) => handleFormChange('timeout', parseInt(e.target.value) * 1000)}
-                    min={MIN_CHANNEL_TIMEOUT / 1000}
-                    max={MAX_CHANNEL_TIMEOUT / 1000}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    范围: {MIN_CHANNEL_TIMEOUT/1000}-{MAX_CHANNEL_TIMEOUT/1000} 秒
+            <div className="space-y-4">
+              {/* 渠道名称 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  渠道名称 *
+                </label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
+                  placeholder="例如: 本地 Ollama"
+                />
+                {formErrors.find(e => e.field === 'name') && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {formErrors.find(e => e.field === 'name')?.message}
                   </p>
-                  {formErrors.find(e => e.field === 'timeout') && (
+                )}
+              </div>
+
+              {/* 提供商选择 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  提供商 *
+                </label>
+                <Select
+                  value={formData.provider}
+                  onValueChange={(value) => handleFormChange('provider', value)}
+                  onOpenChange={(open) => {
+                    try {
+                      console.debug('[DEBUG-Provider-Select] open:', open);
+                    } catch {}
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  {/*
+                    提升下拉菜单层级，确保位于“新增渠道”对话框遮罩(z-[1100])与内容容器(z-[1101])之上
+                    避免点击后无显示的情况（被遮挡在遮罩之下）
+                  */}
+                  <SelectContent className="z-[1205] pointer-events-auto">
+                    <SelectItem value="gemini">Google Gemini</SelectItem>
+                    <SelectItem value="openai">OpenAI 兼容</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* API Key */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  API Key *
+                </label>
+                <Input
+                  type="password"
+                  value={formData.apiKey}
+                  onChange={(e) => handleFormChange('apiKey', e.target.value)}
+                  placeholder="输入您的 API 密钥"
+                />
+                {formErrors.find(e => e.field === 'apiKey') && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {formErrors.find(e => e.field === 'apiKey')?.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Base URL (仅 OpenAI 兼容) */}
+              {formData.provider === 'openai' && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Base URL *
+                  </label>
+                  <Input
+                    value={formData.baseUrl}
+                    onChange={(e) => handleFormChange('baseUrl', e.target.value)}
+                    placeholder="http://localhost:11434/v1"
+                  />
+                  {formErrors.find(e => e.field === 'baseUrl') && (
                     <p className="text-red-600 text-sm mt-1">
-                      {formErrors.find(e => e.field === 'timeout')?.message}
+                      {formErrors.find(e => e.field === 'baseUrl')?.message}
                     </p>
                   )}
                 </div>
+              )}
 
-                {/* 描述 */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    描述 (可选)
-                  </label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => handleFormChange('description', e.target.value)}
-                    placeholder="渠道描述信息"
-                    rows={3}
-                  />
-                </div>
+              {/* 默认模型 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  默认模型 *
+                </label>
+                <Input
+                  value={formData.defaultModel}
+                  onChange={(e) => handleFormChange('defaultModel', e.target.value)}
+                  placeholder="例如: gemini-2.5-pro 或 llama3"
+                />
+                {formErrors.find(e => e.field === 'defaultModel') && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {formErrors.find(e => e.field === 'defaultModel')?.message}
+                  </p>
+                )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
-                <Button variant="outline" onClick={handleCloseForm}>
-                  取消
-                </Button>
-                <Button 
-                  onClick={handleSubmitForm}
-                  disabled={formErrors.length > 0}
-                >
-                  {isEditing ? '更新' : '创建'}
-                </Button>
+              {/* 超时设置 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  超时时间 (秒) *
+                </label>
+                <Input
+                  type="number"
+                  value={formData.timeout / 1000}
+                  onChange={(e) => handleFormChange('timeout', parseInt(e.target.value) * 1000)}
+                  min={MIN_CHANNEL_TIMEOUT / 1000}
+                  max={MAX_CHANNEL_TIMEOUT / 1000}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  范围: {MIN_CHANNEL_TIMEOUT/1000}-{MAX_CHANNEL_TIMEOUT/1000} 秒
+                </p>
+                {formErrors.find(e => e.field === 'timeout') && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {formErrors.find(e => e.field === 'timeout')?.message}
+                  </p>
+                )}
+              </div>
+
+              {/* 描述 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  描述 (可选)
+                </label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  placeholder="渠道描述信息"
+                  rows={3}
+                />
               </div>
             </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
+              <Button variant="outline" onClick={handleCloseForm}>
+                取消
+              </Button>
+              <Button
+                onClick={handleSubmitForm}
+                disabled={formErrors.length > 0}
+              >
+                {isEditing ? '更新' : '创建'}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

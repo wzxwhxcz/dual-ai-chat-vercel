@@ -16,6 +16,9 @@ import {
 } from '../constants';
 import { generateUniqueId } from '../utils/appUtils';
 
+// 跨组件同步事件（同窗口内 localStorage 不会触发 storage 事件，需自定义事件通知）
+const CHANNELS_UPDATED_EVENT = 'api-channels-updated';
+
 export const useApiChannels = () => {
   const [channels, setChannels] = useState<ApiChannel[]>([]);
   const [defaultChannelId, setDefaultChannelId] = useState<string | null>(null);
@@ -32,7 +35,9 @@ export const useApiChannels = () => {
         const channelsWithDates = parsedData.channels.map(channel => ({
           ...channel,
           createdAt: new Date(channel.createdAt),
-          updatedAt: new Date(channel.updatedAt)
+          updatedAt: new Date(channel.updatedAt),
+          // 兼容旧数据：默认启用
+          enabled: channel.enabled !== false,
         }));
         setChannels(channelsWithDates);
       } else {
@@ -47,7 +52,7 @@ export const useApiChannels = () => {
     }
   }, []);
 
-  // 保存渠道数据
+  // 保存渠道数据（保存后通过自定义事件通知其他组件实例刷新）
   const saveChannels = useCallback((channelsToSave: ApiChannel[]) => {
     try {
       const storageData: ApiChannelStorageData = {
@@ -58,13 +63,18 @@ export const useApiChannels = () => {
       
       localStorage.setItem(API_CHANNELS_STORAGE_KEY, JSON.stringify(storageData));
       localStorage.setItem(CHANNEL_DATA_VERSION_STORAGE_KEY, CHANNEL_DATA_VERSION);
+
+      // 通知同窗口内的其他 useApiChannels 实例刷新
+      try {
+        window.dispatchEvent(new CustomEvent(CHANNELS_UPDATED_EVENT));
+      } catch {}
     } catch (error) {
       console.error('保存API渠道数据失败:', error);
       throw new Error('保存渠道数据失败，请检查存储空间');
     }
   }, []);
 
-  // 保存默认渠道ID
+  // 保存默认渠道ID（保存后通知刷新）
   const saveDefaultChannelId = useCallback((channelId: string | null) => {
     try {
       if (channelId) {
@@ -72,6 +82,9 @@ export const useApiChannels = () => {
       } else {
         localStorage.removeItem(DEFAULT_CHANNEL_ID_STORAGE_KEY);
       }
+      try {
+        window.dispatchEvent(new CustomEvent(CHANNELS_UPDATED_EVENT));
+      } catch {}
     } catch (error) {
       console.error('保存默认渠道ID失败:', error);
     }
@@ -134,6 +147,7 @@ export const useApiChannels = () => {
       ...channelData,
       id: generateUniqueId(),
       isDefault: channels.length === 0, // 第一个渠道自动设为默认
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
       metadata: {
@@ -211,6 +225,18 @@ export const useApiChannels = () => {
     setChannels(updatedChannels);
     saveChannels(updatedChannels);
   }, [channels, saveChannels, saveDefaultChannelId]);
+
+  // 启用/禁用渠道
+  const setChannelEnabled = useCallback(async (channelId: string, enabled: boolean): Promise<void> => {
+    const channelIndex = channels.findIndex(c => c.id === channelId);
+    if (channelIndex === -1) {
+      throw new Error('渠道不存在');
+    }
+    const updated = { ...channels[channelIndex], enabled, updatedAt: new Date() };
+    const updatedChannels = channels.map((c, i) => (i === channelIndex ? updated : c));
+    setChannels(updatedChannels);
+    saveChannels(updatedChannels);
+  }, [channels, saveChannels]);
 
   // 设置默认渠道
   const setAsDefault = useCallback(async (channelId: string): Promise<void> => {
@@ -300,17 +326,22 @@ export const useApiChannels = () => {
 
   // 获取默认渠道
   const getDefaultChannel = useCallback((): ApiChannel | null => {
+    // 1) 优先返回默认ID对应且启用的渠道
     if (defaultChannelId) {
-      const channel = channels.find(c => c.id === defaultChannelId);
+      const channel = channels.find(c => c.id === defaultChannelId && c.enabled !== false);
       if (channel) return channel;
     }
-
-    // 如果默认渠道不存在，返回第一个标记为默认的渠道
-    const defaultChannel = channels.find(c => c.isDefault);
-    if (defaultChannel) return defaultChannel;
-
-    // 如果没有默认渠道，返回第一个渠道
-    return channels.length > 0 ? channels[0] : null;
+  
+    // 2) 其次返回标记为默认且启用的渠道
+    const defaultEnabled = channels.find(c => c.isDefault && c.enabled !== false);
+    if (defaultEnabled) return defaultEnabled;
+  
+    // 3) 否则返回第一个启用的渠道
+    const firstEnabled = channels.find(c => c.enabled !== false);
+    if (firstEnabled) return firstEnabled || null;
+  
+    // 4) 如果全都禁用或没有渠道，返回 null
+    return null;
   }, [channels, defaultChannelId]);
 
   // 根据ID获取渠道
@@ -364,6 +395,28 @@ export const useApiChannels = () => {
     loadChannels();
   }, [loadChannels]);
 
+  // 跨组件同步：监听 storage（跨标签页）与自定义事件（同标签页）以刷新列表
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (
+        e.key === API_CHANNELS_STORAGE_KEY ||
+        e.key === DEFAULT_CHANNEL_ID_STORAGE_KEY ||
+        e.key === CHANNEL_DATA_VERSION_STORAGE_KEY
+      ) {
+        loadChannels();
+      }
+    };
+    const onCustom = () => loadChannels();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(CHANNELS_UPDATED_EVENT as any, onCustom as any);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(CHANNELS_UPDATED_EVENT as any, onCustom as any);
+    };
+  }, [loadChannels]);
+
   return {
     channels,
     defaultChannelId,
@@ -373,6 +426,7 @@ export const useApiChannels = () => {
     updateChannel,
     deleteChannel,
     setAsDefault,
+    setChannelEnabled,
     testChannel,
     getDefaultChannel,
     getChannelById,

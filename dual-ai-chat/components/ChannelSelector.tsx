@@ -29,7 +29,7 @@ const ChannelSelector: React.FC<ChannelSelectorProps> = ({
   // 计算当前选中的渠道
   const selectedChannel = useMemo(() => {
     if (currentChannelId) {
-      return channels.find(c => c.id === currentChannelId);
+      return channels.find(c => c.id === currentChannelId && c.enabled !== false) || null;
     }
     return null;
   }, [currentChannelId, channels]);
@@ -65,9 +65,9 @@ const ChannelSelector: React.FC<ChannelSelectorProps> = ({
       channel: ApiChannel;
       isDefault: boolean;
     }> = [];
-
-    // 如果显示默认选项且有默认渠道
-    if (showDefault && defaultChannel) {
+  
+    // 如果显示默认选项且有默认渠道（且启用）
+    if (showDefault && defaultChannel && defaultChannel.enabled !== false) {
       options.push({
         value: 'default',
         label: `使用默认渠道 (${defaultChannel.name})`,
@@ -75,9 +75,10 @@ const ChannelSelector: React.FC<ChannelSelectorProps> = ({
         isDefault: true
       });
     }
-
-    // 添加所有可用渠道
+  
+    // 添加所有启用的渠道
     channels.forEach(channel => {
+      if (channel.enabled === false) return;
       const isChannelDefault = channel.id === defaultChannelId || channel.isDefault;
       options.push({
         value: channel.id,
@@ -86,7 +87,7 @@ const ChannelSelector: React.FC<ChannelSelectorProps> = ({
         isDefault: isChannelDefault
       });
     });
-
+  
     return options;
   }, [channels, defaultChannel, defaultChannelId, showDefault]);
 

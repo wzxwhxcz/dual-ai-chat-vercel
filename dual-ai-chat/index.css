@@ -357,3 +357,27 @@
     pointer-events: auto !important;
   }
 }
+/* Force-overlay fallback to defeat stacking-context and inline pointer-events issues */
+@layer utilities {
+  /* Ensure Radix dialog overlay is visible and interactive; keep default z lower to support nested modals.
+     Per-instance overlayClassName/containerClassName can raise z-index when needed (e.g., child over parent). */
+  [data-radix-dialog-overlay] {
+    position: fixed !important;
+    inset: 0 !important;
+    background-color: rgba(0, 0, 0, 0.55) !important;
+    z-index: 1000 !important; /* sane default; do not exceed parent dialog content by default */
+    pointer-events: auto !important;
+  }
+
+  /* Ensure dialog content is interactive, and explicitly reset any global/ext z-index forcing on role="dialog". */
+  [data-radix-dialog-content],
+  [role="dialog"] {
+    pointer-events: auto !important;
+    z-index: auto !important; /* reset any external 2147483647 forcing; stacking is controlled by container */
+  }
+
+  /* Absolute safety: even if react-remove-scroll injects inline style on body, keep interactions */
+  body[data-scroll-locked] {
+    pointer-events: auto !important;
+  }
+}

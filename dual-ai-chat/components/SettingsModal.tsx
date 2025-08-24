@@ -137,7 +137,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="!max-w-5xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6">
+      <DialogContent
+        overlayClassName="z-[800]"
+        containerClassName="z-[900]"
+        className="!max-w-5xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6"
+      >
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl font-semibold text-primary">应用程序设置</DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
