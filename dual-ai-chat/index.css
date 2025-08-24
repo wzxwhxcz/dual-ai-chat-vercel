@@ -330,4 +330,30 @@
   .chat-markdown-content code {
     word-break: break-all;
   }
+
+  /* 修复 react-remove-scroll 库导致的 pointer-events: none 问题 */
+  /* 覆盖动态注入的 .block-interactivity-* 类导致的 body pointer-events: none */
+  body[class*="block-interactivity-"] {
+    pointer-events: auto !important;
+  }
+  
+  /* 确保滚动锁定仍然有效，但不影响交互 */
+  body[data-scroll-locked] {
+    pointer-events: auto !important;
+    /* 保留滚动锁定功能 */
+    overflow: hidden;
+  }
+
+  /* 确保弹窗和遮罩层始终可交互 */
+  [data-radix-focus-guard],
+  [data-radix-dialog-overlay],
+  [data-radix-dialog-content],
+  [role="dialog"] {
+    pointer-events: auto !important;
+  }
+
+  /* 确保所有固定定位的弹窗层可交互 */
+  .fixed.inset-0 {
+    pointer-events: auto !important;
+  }
 }
