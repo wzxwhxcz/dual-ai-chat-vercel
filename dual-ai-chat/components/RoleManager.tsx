@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { CustomAIRole } from '../types';
-import { 
-  Users, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Copy, 
-  Save, 
-  X,
-  Palette,
-  Smile
+import {
+  Users,
+  Plus,
+  Edit2,
+  Trash2,
+  Copy,
+  Save,
+  X
 } from 'lucide-react';
 
 interface RoleManagerProps {

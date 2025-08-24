@@ -71,7 +71,7 @@ const getBubbleStyle = (sender: MessageSender, purpose: MessagePurpose, messageT
   }
 };
 
-const getPurposePrefix = (purpose: MessagePurpose, sender: MessageSender): string => {
+const getPurposePrefix = (purpose: MessagePurpose): string => {
   switch (purpose) {
     case MessagePurpose.CognitoToMuse:
       return `致 ${MessageSender.Muse}的消息: `;
@@ -120,7 +120,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onManualRetry, f
   }
 
   const handleCopy = async () => {
-    const prefix = getPurposePrefix(purpose, sender);
+    const prefix = getPurposePrefix(purpose);
     const textToCopy = prefix + messageText;
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -166,7 +166,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onManualRetry, f
             <>
               {(isDiscussionStep || isFinalResponse) && (
                 <span className={`block font-medium ${bubblePurposePrefixColorClass} text-sm mb-0.5`}>
-                  {getPurposePrefix(purpose, sender)}
+                  {getPurposePrefix(purpose)}
                 </span>
               )}
               <div
@@ -177,7 +177,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onManualRetry, f
           ) : (
             <p className={`text-sm ${bubbleTextColorClass} whitespace-pre-wrap`}>
               {(isDiscussionStep || isFinalResponse) && ( 
-                <span className={`font-medium ${bubblePurposePrefixColorClass}`}>{getPurposePrefix(purpose, sender)}</span>
+                <span className={`font-medium ${bubblePurposePrefixColorClass}`}>{getPurposePrefix(purpose)}</span>
               )}
               {messageText}
             </p>

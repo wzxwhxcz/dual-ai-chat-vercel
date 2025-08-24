@@ -1,12 +1,12 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { ChatSession } from '../types';
-import { 
-  MessageSquare, 
-  Plus, 
-  Trash2, 
-  Edit2, 
-  Check, 
-  X, 
+import { ChatSession, ApiChannelOverride } from '../types';
+import {
+  MessageSquare,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  X,
   Clock,
   Search,
   Download,
@@ -16,14 +16,16 @@ import {
   FileText,
   AlertCircle
 } from 'lucide-react';
+import ChannelSelector from './ChannelSelector';
 
 interface SessionManagerProps {
   sessions: ChatSession[];
   currentSessionId: string | null;
-  onCreateSession: (title?: string) => void;
+  onCreateSession: (title?: string, channelId?: string, channelOverride?: ApiChannelOverride) => void;
   onSwitchSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onRenameSession: (sessionId: string, newTitle: string) => void;
+  onUpdateSessionChannel?: (sessionId: string, channelId?: string, channelOverride?: ApiChannelOverride) => void;
   onExportSessions?: (sessionIds?: string[]) => { success: boolean; count?: number; error?: string };
   onImportSessions?: (file: File) => Promise<{ success: boolean; count?: number; error?: string }>;
   onSearchSessions?: (searchTerm: string) => ChatSession[];
@@ -48,6 +50,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [importExportMessage, setImportExportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showNewSessionChannelSelect, setShowNewSessionChannelSelect] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 使用增强搜索功能
@@ -85,6 +88,12 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   const handleCancelEdit = () => {
     setEditingSessionId(null);
     setEditTitle('');
+  };
+
+
+  const handleCreateWithChannel = (channelId?: string) => {
+    onCreateSession(undefined, channelId, undefined); // 暂时不支持channelOverride
+    setShowNewSessionChannelSelect(false);
   };
 
   const handleToggleSelection = (sessionId: string) => {
@@ -199,13 +208,40 @@ const SessionManager: React.FC<SessionManagerProps> = ({
         {/* 工具栏 */}
         <div className="p-4 border-b border-gray-200 space-y-3">
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => onCreateSession()}
-              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Plus size={16} className="mr-2" />
-              新建会话
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowNewSessionChannelSelect(!showNewSessionChannelSelect)}
+                className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                <Plus size={16} className="mr-2" />
+                新建会话
+              </button>
+              
+              {showNewSessionChannelSelect && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-64">
+                  <div className="p-3">
+                    <div className="text-sm font-medium text-gray-700 mb-2">选择API渠道（可选）</div>
+                    <ChannelSelector
+                      currentChannelId=""
+                      onChannelChange={(channelId) => handleCreateWithChannel(channelId || undefined)}
+                      showDefault={true}
+                      size="sm"
+                    />
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          onCreateSession();
+                          setShowNewSessionChannelSelect(false);
+                        }}
+                        className="text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        使用默认设置创建
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             
             {onExportSessions && (
               <button

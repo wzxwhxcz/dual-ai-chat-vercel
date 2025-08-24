@@ -37,7 +37,6 @@ export interface ParsedAIResponse {
 }
 
 export const parseAIResponse = (responseText: string): ParsedAIResponse => {
-  let remainingText = responseText;
   const modifications: NotepadAction[] = [];
   const parsingErrors: string[] = [];
   let discussionShouldEnd = false;

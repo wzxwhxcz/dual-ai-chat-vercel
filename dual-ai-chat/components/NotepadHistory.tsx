@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NotepadVersion } from '../hooks/useNotepadHistory';
+import { NotepadVersion } from '../types';
 import { Clock, FileText, Download, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { MessageSender } from '../types';

@@ -41,7 +41,6 @@ export const useStreamResponse = ({ addMessage, updateMessage }: UseStreamRespon
     updateMessage(messageId, '', true);
 
     let accumulatedText = '';
-    const startTime = performance.now();
 
     const callbacks = {
       onChunk: (chunk: string) => {
@@ -56,16 +55,14 @@ export const useStreamResponse = ({ addMessage, updateMessage }: UseStreamRespon
         
         setStreamingText('');
         setStreamingMessageId(null);
-        updateMessage(messageId, fullText, false);
-        
-        // 更新消息的持续时间
-        const endTime = performance.now();
-        const actualDuration = endTime - startTime;
+        void durationMs;
         updateMessage(messageId, fullText, false);
       },
       onError: (error: string, errorType: string, durationMs: number) => {
         setStreamingText('');
         setStreamingMessageId(null);
+        void errorType;
+        void durationMs;
         updateMessage(messageId, `错误: ${error}`, false);
       }
     };

@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChatMessage, MessageSender, MessagePurpose, DiscussionMode } from './types';
+import { ChatMessage, MessageSender, MessagePurpose, DiscussionMode, ApiChannelOverride } from './types';
 import ChatInput from './components/ChatInput';
 import MessageBubble from './components/MessageBubble';
 import Notepad from './components/Notepad';
@@ -43,6 +43,8 @@ import { useNotepadLogic } from './hooks/useNotepadLogic';
 import { useAppUI } from './hooks/useAppUI';
 import { useChatSessions } from './hooks/useChatSessions';
 import { useCustomRoles } from './hooks/useCustomRoles';
+import { useApiChannels } from './hooks/useApiChannels';
+import { migrateFromLegacyConfig } from './utils/channelMigration';
 import { generateUniqueId, getWelcomeMessageText } from './utils/appUtils';
 
 const DEFAULT_CHAT_PANEL_PERCENT = 60; 
@@ -141,12 +143,13 @@ const App: React.FC = () => {
     switchToSession,
     deleteSession,
     renameSession,
+    getSessionChannel,
     exportSessions,
     importSessions,
     searchSessions,
   } = useChatSessions();
 
-  // 角色管理hooks  
+  // 角色管理hooks
   const {
     allRoles,
     createRole,
@@ -155,6 +158,12 @@ const App: React.FC = () => {
     getRoleByName,
     duplicateRole,
   } = useCustomRoles();
+
+  // API渠道管理hooks
+  useApiChannels(); // 仅初始化钩子，确保数据迁移等副作用生效
+  const [migrationCompleted, setMigrationCompleted] = useState<boolean>(() => {
+    return localStorage.getItem('apiChannelMigrationCompleted') === 'true';
+  });
 
   // 当前选中的角色 - 必须在 getRoleByName 定义之后
   const currentCognitoRole = getRoleByName(currentCognitoRoleName) || getRoleByName('cognito') || {
@@ -254,6 +263,23 @@ const App: React.FC = () => {
     return messages;
   }, [messages]);
 
+  // 提供给useChatLogic的渠道获取函数
+  const getCurrentSessionChannelId = useCallback(() => {
+    if (currentSessionId) {
+      const { channelId } = getSessionChannel(currentSessionId);
+      return channelId;
+    }
+    return undefined;
+  }, [currentSessionId, getSessionChannel]);
+
+  const getCurrentSessionChannelOverride = useCallback(() => {
+    if (currentSessionId) {
+      const { channelOverride } = getSessionChannel(currentSessionId);
+      return channelOverride;
+    }
+    return undefined;
+  }, [currentSessionId, getSessionChannel]);
+
   const {
     isLoading,
     failedStepInfo,
@@ -291,8 +317,10 @@ const App: React.FC = () => {
     stopProcessingTimer,
     currentQueryStartTimeRef,
     temperature,
-    // 新增：消息历史访问
+    // 新增：消息历史访问和渠道选择
     getAllMessages,
+    getCurrentSessionChannelId,
+    getCurrentSessionChannelOverride,
   });
 
   // Save Gemini custom config
@@ -368,6 +396,58 @@ const App: React.FC = () => {
     initializeChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useCustomApiConfig, useOpenAiApiConfig]); // Re-initialize if API config mode changes
+
+  // 数据迁移逻辑
+  useEffect(() => {
+    const performMigration = async () => {
+      if (!migrationCompleted) {
+        try {
+          console.log('[MIGRATION] 开始检查是否需要数据迁移...');
+          
+          const migrationResult = await migrateFromLegacyConfig();
+          
+          if (migrationResult.success && migrationResult.migratedChannels > 0) {
+            console.log('[MIGRATION] 数据迁移成功:', migrationResult);
+            
+            // 添加系统消息通知用户
+            addMessage(
+              `✨ 检测到旧版API配置，已自动迁移至新的渠道管理系统！\n` +
+              `• 已创建 ${migrationResult.migratedChannels} 个API渠道\n` +
+              `• 已自动设置默认渠道\n` +
+              `• 您可以在"设置 > API渠道"中管理所有渠道`,
+              MessageSender.System,
+              MessagePurpose.SystemNotification
+            );
+          } else if (migrationResult.errors.length > 0) {
+            console.warn('[MIGRATION] 数据迁移出现警告:', migrationResult.errors);
+            addMessage(
+              `⚠️ 数据迁移过程中出现问题：\n• ${migrationResult.errors.join('\n• ')}\n请手动检查API渠道配置。`,
+              MessageSender.System,
+              MessagePurpose.SystemNotification
+            );
+          } else {
+            console.log('[MIGRATION] 无需数据迁移');
+          }
+          
+          // 标记迁移完成
+          localStorage.setItem('apiChannelMigrationCompleted', 'true');
+          setMigrationCompleted(true);
+          
+        } catch (error) {
+          console.error('[MIGRATION] 数据迁移失败:', error);
+          addMessage(
+            '⚠️ 数据迁移过程中出现错误，请手动配置API渠道。如需帮助请查看设置说明。',
+            MessageSender.System,
+            MessagePurpose.SystemNotification
+          );
+        }
+      }
+    };
+
+    // 延迟执行迁移，确保所有hooks都已初始化
+    const timeoutId = setTimeout(performMigration, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [migrationCompleted, addMessage]);
 
 
    useEffect(() => {
@@ -516,14 +596,15 @@ const App: React.FC = () => {
   };
 
   // 会话管理函数
-  const handleCreateSession = useCallback((title?: string) => {
-    createNewSession(title);
+  const handleCreateSession = useCallback((title?: string, channelId?: string, channelOverride?: ApiChannelOverride) => {
+    createNewSession(title, channelId, channelOverride);
     setMessages([]);
     clearNotepadContent();
     setIsNotepadFullscreen(false);
     setIsAutoScrollEnabled(true);
     initializeChat();
   }, [createNewSession, clearNotepadContent, setIsNotepadFullscreen, initializeChat]);
+
 
   const handleSwitchSession = useCallback((sessionId: string) => {
     const session = sessions.find(s => s.id === sessionId);
