@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
-import { ChatMessage, MessageSender, MessagePurpose, FailedStepPayload, DiscussionMode } from '../types'; 
+import { ChatMessage, MessageSender, MessagePurpose, FailedStepPayload, DiscussionMode, ApiChannelOverride } from '../types';
 import { generateResponse as generateGeminiResponse } from '../services/geminiService';
-import { generateOpenAiResponse } from '../services/openaiService'; 
+import { generateOpenAiResponse } from '../services/openaiService';
+import { ApiChannelService } from '../services/apiChannelService';
+import { useApiChannels } from './useApiChannels';
 import {
   AiModel,
   NOTEPAD_INSTRUCTION_PROMPT_PART,
@@ -24,12 +26,10 @@ interface UseChatLogicProps {
   cognitoModelDetails: AiModel;
   museModelDetails: AiModel;
   
-  // Gemini Custom Config
+  // 保持向后兼容的配置 (用于fallback)
   useCustomApiConfig: boolean;
   customApiKey: string;
   customApiEndpoint: string;
-
-  // OpenAI Custom Config
   useOpenAiApiConfig: boolean;
   openAiApiKey: string;
   openAiApiBaseUrl: string;
@@ -48,8 +48,10 @@ interface UseChatLogicProps {
   currentQueryStartTimeRef: React.MutableRefObject<number | null>;
   temperature: number;
   
-  // 新增：消息历史访问
+  // 新增：消息历史访问和渠道选择
   getAllMessages: () => ChatMessage[];
+  getCurrentSessionChannelId?: () => string | undefined;
+  getCurrentSessionChannelOverride?: () => ApiChannelOverride | undefined;
 }
 
 export const useChatLogic = ({
@@ -58,16 +60,15 @@ export const useChatLogic = ({
   setGlobalApiKeyStatus,
   cognitoModelDetails,
   museModelDetails,
-  // Gemini
+  // 保持向后兼容的配置
   useCustomApiConfig,
   customApiKey,
   customApiEndpoint,
-  // OpenAI
   useOpenAiApiConfig,
   openAiApiKey,
   openAiApiBaseUrl,
-  openAiCognitoModelId: _openAiCognitoModelId,  // 参数传入但在此不直接使用
-  openAiMuseModelId: _openAiMuseModelId,        // 参数传入但在此不直接使用
+  openAiCognitoModelId: _openAiCognitoModelId,
+  openAiMuseModelId: _openAiMuseModelId,
   // Shared
   discussionMode,
   manualFixedTurns,
@@ -77,10 +78,12 @@ export const useChatLogic = ({
   notepadContent,
   startProcessingTimer,
   stopProcessingTimer,
-  currentQueryStartTimeRef: _currentQueryStartTimeRef, // 参数传入但在此不直接使用
+  currentQueryStartTimeRef: _currentQueryStartTimeRef,
   temperature,
-  // 新增
+  // 新增：消息历史和渠道选择
   getAllMessages,
+  getCurrentSessionChannelId,
+  getCurrentSessionChannelOverride,
 }: UseChatLogicProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [discussionLog, setDiscussionLog] = useState<string[]>([]);
@@ -89,6 +92,9 @@ export const useChatLogic = ({
   const [currentDiscussionTurn, setCurrentDiscussionTurn] = useState<number>(0);
   const [isInternalDiscussionActive, setIsInternalDiscussionActive] = useState<boolean>(false);
   const [lastCompletedTurnCount, setLastCompletedTurnCount] = useState<number>(0);
+  
+  // 渠道路由辅助函数
+  const { channels, getChannelById, getDefaultChannel } = useApiChannels();
 
   const getThinkingConfigForGeminiModel = useCallback((modelDetails: AiModel) : { thinkingBudget: number } | undefined => {
     if (!useOpenAiApiConfig && modelDetails.supportsThinkingConfig && isThinkingBudgetActive) {
@@ -123,6 +129,10 @@ export const useChatLogic = ({
     // 获取消息历史：优先使用传入的参数，否则获取当前所有消息
     const historyToUse = messageHistory || getAllMessages();
     
+    // 获取当前会话的渠道设置
+    const sessionChannelId = getCurrentSessionChannelId?.();
+    const sessionChannelOverride = getCurrentSessionChannelOverride?.();
+    
     // 🚨 CRITICAL DEBUG: 验证消息历史传递和关键参数
     console.log(`[CRITICAL-DEBUG-${stepIdentifier}] commonAIStepExecution调用详情:`, {
       传入的messageHistory长度: messageHistory?.length || 0,
@@ -136,7 +146,9 @@ export const useChatLogic = ({
       prompt前100字符: prompt?.substring(0, 100) || '❌ EMPTY PROMPT',
       stepIdentifier,
       senderForStep,
-      modelDetailsForStep: modelDetailsForStep.name
+      modelDetailsForStep: modelDetailsForStep.name,
+      sessionChannelId,
+      sessionChannelOverride
     });
 
     // 🚨 CRITICAL: 检查getAllMessages是否正常工作
@@ -161,55 +173,125 @@ export const useChatLogic = ({
       let result: { text: string; durationMs: number; error?: string; requestDetails?: any; responseBody?: any } | undefined;
       
       try {
-        const currentOpenAiModelId = modelDetailsForStep.apiName;
+        // 🔥 新的API渠道路由逻辑
+        let channelRouted = false;
+        
+        if (channels && channels.length > 0 && getChannelById && getDefaultChannel) {
+          try {
+            // 确定要使用的渠道ID：会话指定的渠道 > 角色特定覆盖渠道 > 全局默认渠道
+            let targetChannelId: string | undefined;
+            
+            if (sessionChannelOverride) {
+              // 会话级别的角色特定渠道覆盖
+              targetChannelId = senderForStep === MessageSender.Cognito
+                ? sessionChannelOverride.cognitoChannelId
+                : sessionChannelOverride.museChannelId;
+            }
+            
+            if (!targetChannelId) {
+              // 使用会话指定的渠道或默认渠道
+              targetChannelId = sessionChannelId;
+            }
+            
+            // 获取渠道配置
+            const targetChannel = targetChannelId ? getChannelById(targetChannelId) : getDefaultChannel();
+            
+            if (targetChannel) {
+              console.log(`[API-CHANNEL-ROUTING] ${stepIdentifier} 使用渠道:`, {
+                senderForStep,
+                channelId: targetChannel.id,
+                channelName: targetChannel.name,
+                provider: targetChannel.provider
+              });
+              
+              // 使用API渠道服务
+              const channelResponse = await ApiChannelService.generateResponse(
+                prompt,
+                {
+                  channel: targetChannel,
+                  messageHistory: historyToUse,
+                  temperature
+                },
+                modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+                imageApiPartForStep
+              );
+              
+              // 转换为兼容格式
+              result = {
+                text: channelResponse.text,
+                durationMs: channelResponse.durationMs,
+                error: channelResponse.error,
+                requestDetails: channelResponse.requestDetails,
+                responseBody: channelResponse.responseBody
+              };
+              
+              channelRouted = true;
+              
+              console.log(`[API-CHANNEL-SUCCESS] ${stepIdentifier} 渠道响应成功:`, {
+                channelUsed: targetChannel.id,
+                responseLength: result.text?.length || 0,
+                durationMs: result.durationMs
+              });
+            }
+            
+          } catch (channelError) {
+            console.warn(`[API-CHANNEL-FALLBACK] ${stepIdentifier} 渠道服务失败，回退到原有服务:`, channelError);
+            channelRouted = false;
+          }
+        }
+        
+        // 如果渠道路由失败或不可用，使用原有的直接服务调用
+        if (!channelRouted) {
+          const currentOpenAiModelId = modelDetailsForStep.apiName;
 
-        if (useOpenAiApiConfig) {
-          result = await generateOpenAiResponse(
-            prompt,
-            currentOpenAiModelId,
-            openAiApiKey,
-            openAiApiBaseUrl,
-            modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-            imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined,
-            temperature,
-            historyToUse  // 传递消息历史
-          );
-        } else {
-          result = await generateGeminiResponse(
-            prompt,
-            modelDetailsForStep.apiName,
-            useCustomApiConfig,
-            customApiKey,
-            customApiEndpoint,
-            modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
-            imageApiPartForStep,
-            thinkingConfigToUseForGemini,
-            temperature,
-            historyToUse  // 传递消息历史
-          );
+          if (useOpenAiApiConfig) {
+            result = await generateOpenAiResponse(
+              prompt,
+              currentOpenAiModelId,
+              openAiApiKey,
+              openAiApiBaseUrl,
+              modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+              imageApiPartForStep ? { mimeType: imageApiPartForStep.inlineData.mimeType, data: imageApiPartForStep.inlineData.data } : undefined,
+              temperature,
+              historyToUse  // 传递消息历史
+            );
+          } else {
+            result = await generateGeminiResponse(
+              prompt,
+              modelDetailsForStep.apiName,
+              useCustomApiConfig,
+              customApiKey,
+              customApiEndpoint,
+              modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+              imageApiPartForStep,
+              thinkingConfigToUseForGemini,
+              temperature,
+              historyToUse  // 传递消息历史
+            );
+          }
         }
 
         if (cancelRequestRef.current) throw new Error("用户取消操作");
         
-        if (result.error) {
+        if (result && result.error) {
           if (result.error === "API key not configured" || result.error.toLowerCase().includes("api key not provided")) {
-             setGlobalApiKeyStatus({isMissing: true, message: result.text}); 
-             throw new Error(result.text); 
+             setGlobalApiKeyStatus({isMissing: true, message: result.text});
+             throw new Error(result.text);
           }
           if (result.error === "API key invalid or permission denied") {
-             setGlobalApiKeyStatus({isInvalid: true, message: result.text}); 
+             setGlobalApiKeyStatus({isInvalid: true, message: result.text});
              throw new Error(result.text);
           }
           throw new Error(result.text || "AI 响应错误");
         }
-        setGlobalApiKeyStatus({isMissing: false, isInvalid: false, message: undefined }); 
-        parsedResponse = parseAIResponse(result.text);
-        addMessage(parsedResponse.spokenText, senderForStep, purposeForStep, result.durationMs);
+        setGlobalApiKeyStatus({isMissing: false, isInvalid: false, message: undefined });
+        parsedResponse = parseAIResponse(result?.text || '');
+        addMessage(parsedResponse.spokenText, senderForStep, purposeForStep, result?.durationMs);
         stepSuccess = true;
       } catch (e) {
         const error = e as Error;
         if (error.message.includes("API密钥") || error.message.toLowerCase().includes("api key")) {
-           throw error; 
+           throw error;
         }
 
         if (autoRetryCount < MAX_AUTO_RETRIES) {
@@ -237,34 +319,34 @@ export const useChatLogic = ({
           const errorMsgId = addMessage(finalErrorMessage, MessageSender.System, MessagePurpose.SystemNotification);
           
           let thinkingConfigForPayload: {thinkingBudget: number} | undefined = undefined;
-          if (!useOpenAiApiConfig) { 
+          if (!useOpenAiApiConfig) {
             thinkingConfigForPayload = thinkingConfigToUseForGemini;
           }
 
           setFailedStepInfo({
-            stepIdentifier: stepIdentifier, 
-            prompt: prompt, 
-            modelName: modelDetailsForStep.apiName, 
-            systemInstruction: modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined, 
-            imageApiPart: imageApiPartForStep, 
-            sender: senderForStep, 
-            purpose: purposeForStep, 
-            originalSystemErrorMsgId: errorMsgId, 
+            stepIdentifier: stepIdentifier,
+            prompt: prompt,
+            modelName: modelDetailsForStep.apiName,
+            systemInstruction: modelDetailsForStep.supportsSystemInstruction ? systemInstructionToUse : undefined,
+            imageApiPart: imageApiPartForStep,
+            sender: senderForStep,
+            purpose: purposeForStep,
+            originalSystemErrorMsgId: errorMsgId,
             thinkingConfig: thinkingConfigForPayload,
-            userInputForFlow: userInputForFlowContext || "", 
+            userInputForFlow: userInputForFlowContext || "",
             imageApiPartForFlow: imageApiPartForFlowContext,
-            discussionLogBeforeFailure: discussionLogBeforeFailureContext || [], 
+            discussionLogBeforeFailure: discussionLogBeforeFailureContext || [],
             currentTurnIndexForResume: currentTurnIndexForResumeContext,
             previousAISignaledStopForResume: previousAISignaledStopForResumeContext
           });
-          setIsInternalDiscussionActive(false); 
-          throw error; 
+          setIsInternalDiscussionActive(false);
+          throw error;
         }
       }
       autoRetryCount++;
     }
     if (!parsedResponse) {
-        setIsInternalDiscussionActive(false); 
+        setIsInternalDiscussionActive(false);
         throw new Error("AI响应处理失败");
     }
     return parsedResponse;
@@ -273,7 +355,7 @@ export const useChatLogic = ({
       useOpenAiApiConfig, openAiApiKey, openAiApiBaseUrl,
       useCustomApiConfig, customApiKey, customApiEndpoint,
       setGlobalApiKeyStatus, setIsLoading, setIsInternalDiscussionActive, temperature,
-      getAllMessages  // 添加新的依赖
+      getAllMessages, getCurrentSessionChannelId, getCurrentSessionChannelOverride, channels, getChannelById, getDefaultChannel
     ]);
 
   const continueDiscussionAfterSuccessfulRetry = useCallback(async (

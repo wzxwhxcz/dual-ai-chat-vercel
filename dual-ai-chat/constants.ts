@@ -174,3 +174,42 @@ export const CHAT_SESSIONS_STORAGE_KEY = 'dualAiChatSessions';
 export const CURRENT_SESSION_ID_STORAGE_KEY = 'dualAiChatCurrentSessionId';
 export const CUSTOM_AI_ROLES_STORAGE_KEY = 'dualAiChatCustomRoles';
 export const STREAM_MODE_STORAGE_KEY = 'dualAiChatStreamMode';
+
+// API 渠道管理存储键
+export const API_CHANNELS_STORAGE_KEY = 'dualAiChatApiChannels';
+export const DEFAULT_CHANNEL_ID_STORAGE_KEY = 'dualAiChatDefaultChannelId';
+export const CHANNEL_DATA_VERSION_STORAGE_KEY = 'dualAiChatChannelDataVersion';
+
+// API 渠道默认配置
+export const CHANNEL_DATA_VERSION = '1.0.0';
+export const DEFAULT_CHANNEL_TIMEOUT = 30000; // 30秒
+export const MIN_CHANNEL_TIMEOUT = 5000; // 5秒
+export const MAX_CHANNEL_TIMEOUT = 120000; // 2分钟
+
+// API 渠道错误类型
+export enum ApiChannelErrorType {
+  TIMEOUT = 'CHANNEL_TIMEOUT',
+  NO_CHANNEL = 'NO_AVAILABLE_CHANNEL',
+  INVALID_KEY = 'INVALID_API_KEY',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  CHANNEL_NOT_FOUND = 'CHANNEL_NOT_FOUND',
+  VALIDATION_ERROR = 'VALIDATION_ERROR'
+}
+
+// 默认渠道配置模板
+export const DEFAULT_CHANNEL_TEMPLATES = {
+  GEMINI: {
+    name: 'Google Gemini',
+    provider: 'gemini' as const,
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    defaultModel: GEMINI_PRO_MODEL_ID,
+    timeout: DEFAULT_CHANNEL_TIMEOUT
+  },
+  OPENAI_LOCALHOST: {
+    name: '本地 OpenAI',
+    provider: 'openai' as const,
+    baseUrl: 'http://localhost:11434/v1',
+    defaultModel: 'llama3',
+    timeout: DEFAULT_CHANNEL_TIMEOUT
+  }
+};

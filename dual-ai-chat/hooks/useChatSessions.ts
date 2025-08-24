@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ChatSession, ChatMessage } from '../types';
+import { ChatSession, ChatMessage, ApiChannelOverride } from '../types';
 import { CHAT_SESSIONS_STORAGE_KEY, CURRENT_SESSION_ID_STORAGE_KEY } from '../constants';
 import { generateUniqueId } from '../utils/appUtils';
 
@@ -59,13 +59,15 @@ export const useChatSessions = () => {
   }, []);
 
   // 创建新会话
-  const createNewSession = useCallback((title?: string): string => {
+  const createNewSession = useCallback((title?: string, channelId?: string, channelOverride?: ApiChannelOverride): string => {
     const newSession: ChatSession = {
       id: generateUniqueId(),
       title: title || `会话 ${new Date().toLocaleString()}`,
       messages: [],
       notepadContent: '这是共享记事本。\nCognito 和 Muse 可以在讨论过程中共同编辑和使用它。',
       notepadHistory: { versions: [], currentVersionIndex: -1 }, // 初始化记事本历史
+      channelId: channelId || undefined, // 会话关联的渠道ID
+      channelOverride: channelOverride || undefined, // 会话级别的渠道覆盖设置
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -140,6 +142,39 @@ export const useChatSessions = () => {
       return updated;
     });
   }, [saveSessions]);
+
+  // 更新会话的渠道设置
+  const updateSessionChannel = useCallback((sessionId: string, channelId?: string, channelOverride?: ApiChannelOverride) => {
+    setSessions(prev => {
+      const updated = prev.map(session => {
+        if (session.id === sessionId) {
+          return {
+            ...session,
+            channelId: channelId || undefined,
+            channelOverride: channelOverride || undefined,
+            updatedAt: new Date()
+          };
+        }
+        return session;
+      });
+      saveSessions(updated);
+      return updated;
+    });
+  }, [saveSessions]);
+
+  // 获取会话的渠道设置
+  const getSessionChannel = useCallback((sessionId: string): { channelId?: string; channelOverride?: ApiChannelOverride } => {
+    const session = sessions.find(s => s.id === sessionId);
+    return {
+      channelId: session?.channelId,
+      channelOverride: session?.channelOverride
+    };
+  }, [sessions]);
+
+  // 清除会话的渠道设置
+  const clearSessionChannel = useCallback((sessionId: string) => {
+    updateSessionChannel(sessionId, undefined, undefined);
+  }, [updateSessionChannel]);
 
   // 获取当前会话
   const getCurrentSession = useCallback((): ChatSession | null => {
@@ -262,6 +297,9 @@ export const useChatSessions = () => {
     switchToSession,
     deleteSession,
     renameSession,
+    updateSessionChannel,
+    getSessionChannel,
+    clearSessionChannel,
     loadSessions,
     exportSessions,
     importSessions,

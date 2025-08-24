@@ -88,8 +88,16 @@ export interface ChatSession {
   messages: ChatMessage[];
   notepadContent: string;
   notepadHistory?: NotepadHistoryState; // 每个会话独立的记事本历史
+  channelId?: string; // 会话关联的渠道ID
+  channelOverride?: ApiChannelOverride; // 会话级别的渠道覆盖设置
   createdAt: Date;
   updatedAt: Date;
+}
+
+// API 渠道覆盖设置
+export interface ApiChannelOverride {
+  cognitoChannelId?: string;
+  museChannelId?: string;
 }
 
 // AI角色自定义
@@ -103,3 +111,42 @@ export interface CustomAIRole {
   isBuiltIn: boolean;
   createdAt: Date;
 }
+
+// API 渠道管理
+export type ApiChannelProvider = 'openai' | 'gemini';
+
+export interface ApiChannel {
+  id: string;
+  name: string;
+  provider: ApiChannelProvider;
+  apiKey: string;
+  baseUrl?: string;
+  defaultModel: string;
+  timeout: number;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  metadata?: {
+    version: string;
+    description?: string;
+    [key: string]: any; // 允许其他自定义字段
+  };
+}
+
+export interface ApiChannelStorageData {
+  version: string;
+  channels: ApiChannel[];
+  lastUpdated: string;
+}
+
+export interface ApiChannelValidationError {
+  field: keyof ApiChannel;
+  message: string;
+}
+
+export interface ApiChannelTestResult {
+  success: boolean;
+  error?: string;
+  latency?: number;
+}
+
